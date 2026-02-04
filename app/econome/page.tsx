@@ -140,7 +140,7 @@ export default function EconomeDashboard() {
               <div className="flex-1 bg-white border border-gray-300 rounded shadow-sm flex flex-col overflow-hidden">
                   <div className="bg-gray-100 border-b border-gray-300 px-2 py-1 flex justify-between items-center shrink-0 h-8">
                       <h3 className="font-bold text-gray-700 text-[10px] flex items-center gap-1 uppercase"><Clock size={12}/> Activité Récente</h3>
-                      <Link href="/econome/historique" className="text-[9px] text-blue-600 hover:underline flex items-center gap-1 font-bold">HISTORIQUE <ArrowRight size={8}/></Link>
+                      <Link href="/econome/journal" className="text-[9px] text-blue-600 hover:underline flex items-center gap-1 font-bold">HISTORIQUE <ArrowRight size={8}/></Link>
                   </div>
                   
                   <div className="flex-1 overflow-auto bg-white p-0">

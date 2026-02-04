@@ -22,8 +22,8 @@ export default function Sidebar() {
     { role: 'ECONOME', label: 'Transferts', icon: ArrowRightLeft, link: '/econome/transfert' },
     { role: 'ECONOME', label: 'Suivi Écolages', icon: BookOpen, link: '/econome/ecolages' }, // LIEN CORRIGÉ
     { role: 'ECONOME', label: 'Annuaire Étudiants', icon: Users, link: '/econome/etudiants' },
-    { role: 'ECONOME', label: 'Audit & Clôture', icon: Lock, link: '/econome/audit' }, // LIEN CORRIGÉ
-    { role: 'ECONOME', label: 'Historique Journaux', icon: Calendar, link: '/econome/historique' }, // LIEN CORRIGÉ
+    { role: 'ECONOME', label: 'Audit & Clôture', icon: Lock, link: '/econome/cloture' }, // LIEN CORRIGÉ
+    { role: 'ECONOME', label: 'Historique Journaux', icon: Calendar, link: '/econome/journal' }, // LIEN CORRIGÉ
     { role: 'ECONOME', label: 'Paramètres Compte', icon: Settings, link: '/econome/parametres' },
     
     // --- NAVIGATION DG (Liens alignés sur ton terminal) ---
