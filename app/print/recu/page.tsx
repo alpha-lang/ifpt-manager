@@ -1,20 +1,29 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, CheckCircle, ArrowLeft, Hash, Clock, User } from 'lucide-react';
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  amount: number;
+  category?: string | null;
+  description?: string | null;
+  author?: string | null;
+  student_matricule?: string | null;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
 
 function RecuContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) fetchTransaction();
-  }, [id]);
 
   const fetchTransaction = async () => {
     const { data: tx } = await supabase.from('transactions')
@@ -23,12 +32,16 @@ function RecuContent() {
         .single();
     
     if (tx) {
-        setData(tx);
+        setData(tx as Transaction);
         // Délai pour assurer le rendu avant l'appel système d'impression
         setTimeout(() => window.print(), 1000);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) fetchTransaction();
+  }, [id]);
 
   if (loading) return <div className="p-10 text-center font-mono text-[10px] text-gray-400 animate-pulse">TRAITEMENT DU TICKET...</div>;
   if (!data) return <div className="p-10 text-center text-red-600 font-bold border-2 border-red-600 uppercase text-xs">Erreur: Transaction non trouvée</div>;

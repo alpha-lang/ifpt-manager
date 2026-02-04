@@ -69,8 +69,9 @@ export default function LoginPage() {
             }, 800);
         }
 
-    } catch (err: any) {
-        setNotif({ msg: err.message, type: 'error' });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Erreur inconnue';
+        setNotif({ msg: message, type: 'error' });
         setLoading(false);
     }
   };

@@ -38,7 +38,7 @@ export default function GestionUsersPage() {
   useEffect(() => { fetchUsers(); }, []);
 
   // 2. Fonction générique pour appeler l'API
-  const callApiAction = async (action: string, userId: string, newData: any = {}) => {
+  const callApiAction = async (action: string, userId: string, newData: Record<string, unknown> = {}) => {
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
@@ -51,8 +51,9 @@ export default function GestionUsersPage() {
       const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
       Toast.fire({ icon: 'success', title: result.message });
       fetchUsers(); // On recharge la liste
-    } catch (error: any) {
-      Swal.fire('Erreur', error.message, 'error');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      Swal.fire('Erreur', message, 'error');
     }
   };
 

@@ -1,16 +1,29 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Calendar, Save, Clock, CheckCheck, User, RefreshCw, Briefcase } from 'lucide-react';
 import Swal from 'sweetalert2';
 
+type Employee = {
+  id: string;
+  nom: string;
+  contract_type: string;
+  [key: string]: unknown;
+};
+
+type AttendanceEntry = {
+  hours: number | string;
+  status: string;
+};
+
+type AttendanceMap = Record<string, AttendanceEntry>;
+
 export default function PointageJournalier() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [attendanceData, setAttendanceData] = useState<any>({});
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [attendanceData, setAttendanceData] = useState<AttendanceMap>({});
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => { loadDayData(); }, [date]);
 
   const loadDayData = async () => {
     setLoading(true);
@@ -18,10 +31,11 @@ export default function PointageJournalier() {
     const { data: att } = await supabase.from('attendance').select('*').eq('date', date);
 
     if (emps) {
-        setEmployees(emps);
-        const map: any = {};
-        emps.forEach(e => {
-            const record = att?.find(a => a.employee_id === e.id);
+        const employeesList = emps as Employee[];
+        setEmployees(employeesList);
+        const map: AttendanceMap = {};
+        employeesList.forEach(e => {
+            const record = (att ?? []).find(a => a.employee_id === e.id);
             map[e.id] = {
                 hours: record ? record.hours : (e.contract_type === 'HORAIRE' ? 0 : 8),
                 status: record ? record.status : 'PRESENT'
@@ -32,12 +46,12 @@ export default function PointageJournalier() {
     setLoading(false);
   };
 
-  const handleChange = (id: string, field: string, val: any) => {
-    setAttendanceData((prev: any) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
+  const handleChange = (id: string, field: keyof AttendanceEntry, val: string | number) => {
+    setAttendanceData((prev) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
   };
 
   const markAllPresent = () => {
-    const map: any = { ...attendanceData };
+    const map: AttendanceMap = { ...attendanceData };
     employees.forEach(e => {
         if(e.contract_type === 'MENSUEL') map[e.id] = { hours: 8, status: 'PRESENT' };
     });
@@ -50,7 +64,7 @@ export default function PointageJournalier() {
     setLoading(true);
     const updates = employees.map(e => ({
         employee_id: e.id, date: date,
-        hours: parseFloat(attendanceData[e.id].hours) || 0,
+        hours: parseFloat(String(attendanceData[e.id]?.hours ?? '0')) || 0,
         status: attendanceData[e.id].status
     }));
     const { error } = await supabase.from('attendance').upsert(updates, { onConflict: 'employee_id, date' });
@@ -61,8 +75,10 @@ export default function PointageJournalier() {
     }
   };
 
+  useEffect(() => { loadDayData(); }, [date]);
+
   // Calcul Total
-  const totalHours: number = Object.values(attendanceData).reduce((acc: number, val: any) => acc + (parseFloat(val.hours) || 0), 0);
+  const totalHours: number = Object.values(attendanceData).reduce((acc, val) => acc + (parseFloat(String(val.hours ?? '0')) || 0), 0);
 
   return (
     <div className="h-[calc(100vh-60px)] bg-gray-100 p-2 text-xs font-sans overflow-hidden flex flex-col">

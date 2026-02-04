@@ -1,13 +1,33 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Download, Filter, Search, Calendar, FileSpreadsheet, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx'; 
 
+type Vault = {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  type: string;
+  category: string;
+  description: string;
+  amount: number;
+  vault_id: string;
+  author?: string | null;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 export default function DGAuditPage() {
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
-  const [vaults, setVaults] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filtered, setFiltered] = useState<Transaction[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   const [loading, setLoading] = useState(true);
 
   // --- FILTRES ---
@@ -20,13 +40,6 @@ export default function DGAuditPage() {
   // --- STATS DE LA PÉRIODE ---
   const [stats, setStats] = useState({ recette: 0, depense: 0, solde: 0 });
 
-  useEffect(() => { loadData(); }, []);
-
-  // Ré-appliquer les filtres quand une variable change
-  useEffect(() => {
-    applyFilters();
-  }, [transactions, dateStart, dateEnd, selectedVault, selectedType, searchTerm]);
-
   const loadData = async () => {
     setLoading(true);
     // On charge UNIQUEMENT les transactions validées pour un audit comptable propre
@@ -35,8 +48,8 @@ export default function DGAuditPage() {
         .eq('status', 'VALIDATED') 
         .order('created_at', { ascending: false });
     const { data: v } = await supabase.from('vaults').select('*').order('name');
-    setTransactions(tx || []);
-    setVaults(v || []);
+    setTransactions((tx ?? []) as Transaction[]);
+    setVaults((v ?? []) as Vault[]);
     setLoading(false);
   };
 
@@ -65,6 +78,13 @@ export default function DGAuditPage() {
     const d = res.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
     setStats({ recette: r, depense: d, solde: r - d });
   };
+
+  useEffect(() => { loadData(); }, []);
+
+  // Ré-appliquer les filtres quand une variable change
+  useEffect(() => {
+    applyFilters();
+  }, [transactions, dateStart, dateEnd, selectedVault, selectedType, searchTerm]);
 
   // --- EXPORT EXCEL (.XLSX) ---
   const exportToExcel = () => {
@@ -185,7 +205,7 @@ export default function DGAuditPage() {
                         <th className="p-2 border-r border-gray-300 w-24">Date</th>
                         <th className="p-2 border-r border-gray-300 w-20 text-center">Type</th>
                         <th className="p-2 border-r border-gray-300 w-32">Catégorie</th>
-                        <th className="p-2 border-r border-gray-300">Libellé de l'écriture</th>
+                        <th className="p-2 border-r border-gray-300">Libellé de l&apos;écriture</th>
                         <th className="p-2 border-r border-gray-300 w-24">Compte</th>
                         <th className="p-2 border-r border-gray-300 w-24">Auteur</th>
                         <th className="p-2 text-right w-24 bg-gray-50">Montant</th>

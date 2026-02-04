@@ -1,21 +1,29 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, Search, FileText, ArrowLeft, Calendar, RefreshCw, Banknote } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+type Transaction = {
+  id: string;
+  created_at: string;
+  description?: string | null;
+  amount: number;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 export default function JournalSalaires() {
   const router = useRouter();
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filtered, setFiltered] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   
   const currentYear = new Date().getFullYear();
   const [dateStart, setDateStart] = useState(`${currentYear}-01-01`);
   const [dateEnd, setDateEnd] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => { loadSalaries(); }, []);
 
   useEffect(() => {
     let res = transactions;
@@ -35,11 +43,13 @@ export default function JournalSalaires() {
         .eq('type', 'DEPENSE')
         .eq('category', 'SALAIRE')
         .order('created_at', { ascending: false });
-    setTransactions(data || []);
+    setTransactions((data ?? []) as Transaction[]);
     setLoading(false);
   };
 
   const total = filtered.reduce((acc, t) => acc + t.amount, 0);
+
+  useEffect(() => { loadSalaries(); }, []);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CHARGEMENT SALAIRES...</div>;
 

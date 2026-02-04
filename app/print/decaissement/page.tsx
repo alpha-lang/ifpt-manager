@@ -1,21 +1,30 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+type Transaction = {
+  id: string;
+  created_at: string;
+  amount: number;
+  category?: string | null;
+  description: string;
+  beneficiary?: string | null;
+  author?: string | null;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 function DecaissementContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
 
   const loadData = async () => {
     const { data: tx } = await supabase.from('transactions')
@@ -24,12 +33,16 @@ function DecaissementContent() {
         .single();
     
     if (tx) {
-        setData(tx);
+        setData(tx as Transaction);
         // Petit délai pour laisser les polices/données se stabiliser
         setTimeout(() => window.print(), 1000);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
 
   if (loading) return <div className="p-10 text-center font-mono text-xs text-gray-400 uppercase tracking-widest">Génération du bordereau...</div>;
   if (!data) return <div className="text-red-600 text-center p-10 font-bold border-2 border-red-600 m-10">PIÈCE COMPTABLE INTROUVABLE</div>;

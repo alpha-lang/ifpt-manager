@@ -1,24 +1,21 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 
 export default function DGLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
+  const role = typeof window !== 'undefined' ? sessionStorage.getItem('role') : null;
 
   useEffect(() => {
     // SÉCURITÉ : Vérification du rôle DG
-    const role = sessionStorage.getItem('role');
     if (role !== 'DG') {
       router.push('/'); // Redirection si pas autorisé
-    } else {
-      setAuthorized(true);
     }
-  }, []);
+  }, [role, router]);
 
   // Empêche l'affichage tant que la sécurité n'a pas validé
-  if (!authorized) return null;
+  if (role !== 'DG') return null;
 
   return (
     // STYLE SAGE : Ecran complet (h-screen), pas de scroll global (overflow-hidden), police dense (text-xs)

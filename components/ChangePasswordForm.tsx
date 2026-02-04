@@ -46,8 +46,9 @@ export default function ChangePasswordForm() {
       setNewPassword('');
       setConfirmPassword('');
 
-    } catch (error: any) {
-      Swal.fire('Erreur', error.message, 'error');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      Swal.fire('Erreur', message, 'error');
     } finally {
       setLoading(false);
     }

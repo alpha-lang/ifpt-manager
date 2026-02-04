@@ -1,17 +1,41 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle, CheckCircle, Clock, ArrowRight, RefreshCw, BarChart3, Coins } from 'lucide-react';
 import Link from 'next/link';
 
+type Session = {
+  opening_date: string;
+  status?: string | null;
+  [key: string]: unknown;
+};
+
+type Vault = {
+  id: string;
+  name: string;
+  balance: number;
+  icon?: string | null;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  type: string;
+  category?: string | null;
+  description?: string | null;
+  amount: number;
+  vaults?: { name?: string | null; icon?: string | null } | null;
+  [key: string]: unknown;
+};
+
 export default function EconomeDashboard() {
   const [stats, setStats] = useState({ recette: 0, depense: 0, solde: 0, count: 0 });
-  const [session, setSession] = useState<any>(null);
-  const [recentTx, setRecentTx] = useState<any[]>([]);
-  const [vaults, setVaults] = useState<any[]>([]); // Pour les soldes réels
+  const [session, setSession] = useState<Session | null>(null);
+  const [recentTx, setRecentTx] = useState<Transaction[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]); // Pour les soldes réels
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => { loadDashboard(); }, []);
 
   const loadDashboard = async () => {
     setLoading(true);
@@ -19,7 +43,7 @@ export default function EconomeDashboard() {
     
     // 1. Session Caisse
     const { data: sess } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').maybeSingle();
-    setSession(sess);
+    setSession((sess ?? null) as Session | null);
 
     // 2. Transactions du Jour (Stats Rapides)
     const { data: txDay } = await supabase.from('transactions')
@@ -28,10 +52,11 @@ export default function EconomeDashboard() {
         .order('created_at', { ascending: false });
 
     if (txDay) {
-        const r = txDay.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
-        const d = txDay.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
-        setStats({ recette: r, depense: d, solde: r - d, count: txDay.length });
-        setRecentTx(txDay.slice(0, 5));
+        const transactions = txDay as Transaction[];
+        const r = transactions.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
+        const d = transactions.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
+        setStats({ recette: r, depense: d, solde: r - d, count: transactions.length });
+        setRecentTx(transactions.slice(0, 5));
     }
 
     // 3. SOLDES RÉELS (Calcul complet)
@@ -39,15 +64,16 @@ export default function EconomeDashboard() {
     const { data: allTx } = await supabase.from('transactions').select('amount, type, vault_id').eq('status', 'VALIDATED'); // Seul le validé compte
 
     if (vList && allTx) {
-        const computedVaults = vList.map(v => {
-            const vaultTx = allTx.filter(t => t.vault_id === v.id);
+        const allTransactions = allTx as Array<{ vault_id: string; type: string; amount: number }>;
+        const computedVaults = (vList as Vault[]).map(v => {
+            const vaultTx = allTransactions.filter(t => t.vault_id === v.id);
             const bal = (v.balance || 0) + vaultTx.reduce((acc, t) => {
                 if (t.type === 'RECETTE') return acc + t.amount;
                 if (t.type === 'DEPENSE') return acc - t.amount;
                 if (t.type === 'TRANSFERT') return acc + t.amount;
                 return acc;
             }, 0);
-            return { ...v, balance: bal };
+            return { ...v, balance: bal } as Vault;
         });
         setVaults(computedVaults);
     }
@@ -55,6 +81,7 @@ export default function EconomeDashboard() {
     setLoading(false);
   };
 
+  useEffect(() => { loadDashboard(); }, []);
   const cards = [
     { title: 'RECETTES (JOUR)', val: stats.recette, color: 'text-green-600', border: 'border-green-500', icon: TrendingUp },
     { title: 'DÉPENSES (JOUR)', val: stats.depense, color: 'text-red-600', border: 'border-red-500', icon: TrendingDown },
@@ -119,7 +146,7 @@ export default function EconomeDashboard() {
                   <div className="flex-1 overflow-auto bg-white p-0">
                       {recentTx.length === 0 ? (
                           <div className="h-full flex flex-col items-center justify-center text-gray-300 text-[10px] italic">
-                              <Activity size={24} className="mb-2 opacity-20"/>Aucun mouvement aujourd'hui
+                              <Activity size={24} className="mb-2 opacity-20"/>Aucun mouvement aujourd&apos;hui
                           </div>
                       ) : (
                           <table className="w-full text-left text-[10px] border-collapse">

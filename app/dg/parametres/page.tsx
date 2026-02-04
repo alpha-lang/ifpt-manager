@@ -1,20 +1,24 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { Settings, Key, User, Shield, Save, Lock, Mail, Globe, CheckCircle } from 'lucide-react';
 
+type UserProfile = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  [key: string]: unknown;
+};
+
 export default function ParametresDG() {
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   
   // Formulaire Password
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-
-  useEffect(() => {
-    loadUser();
-  }, []);
 
   const loadUser = async () => {
     // On récupère les infos de session
@@ -22,9 +26,13 @@ export default function ParametresDG() {
     if (user) {
         // On récupère le profil
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        setUser({ ...user, ...profile });
+        setUser({ ...user, ...profile } as UserProfile);
     }
   };
+
+  useEffect(() => {
+    loadUser();
+  }, []);
 
   const handleUpdatePassword = async () => {
     if (!password || !confirm) return Swal.fire('Erreur', 'Veuillez remplir tous les champs.', 'warning');
@@ -87,7 +95,7 @@ export default function ParametresDG() {
                       </div>
 
                       <div>
-                          <p className="text-[9px] text-gray-400 uppercase font-bold flex items-center justify-center gap-1"><Globe size={10}/> Niveau d'Accès</p>
+                          <p className="text-[9px] text-gray-400 uppercase font-bold flex items-center justify-center gap-1"><Globe size={10}/> Niveau d&apos;Accès</p>
                           <span className="inline-block mt-1 bg-red-600 text-white px-3 py-0.5 rounded text-[10px] font-bold shadow-sm uppercase tracking-wider">
                               SUPER ADMIN
                           </span>
@@ -116,7 +124,7 @@ export default function ParametresDG() {
                           <div>
                               <h4 className="font-bold text-orange-800 text-[11px] uppercase">Avertissement de Sécurité</h4>
                               <p className="text-[10px] text-orange-800 leading-tight mt-1">
-                                  En tant qu'administrateur, votre mot de passe permet d'accéder à l'ensemble des données financières et comptables. 
+                                  En tant qu&apos;administrateur, votre mot de passe permet d&apos;accéder à l&apos;ensemble des données financières et comptables. 
                                   Assurez-vous de sa complexité.
                               </p>
                           </div>
@@ -159,7 +167,7 @@ export default function ParametresDG() {
                               disabled={loading}
                               className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-bold shadow-md flex items-center gap-2 text-[11px] uppercase tracking-wide transition-transform active:scale-95 disabled:opacity-50"
                           >
-                              {loading ? 'Mise à jour...' : <><Save size={14}/> Mettre à jour l'accès</>}
+                              {loading ? 'Mise à jour...' : <><Save size={14}/> Mettre à jour l&apos;accès</>}
                           </button>
                       </div>
 

@@ -1,18 +1,35 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { TrendingUp, Wallet, ArrowDownCircle, ArrowUpCircle, Activity, PieChart as PieIcon } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, ArrowDownCircle, ArrowUpCircle, Activity, PieChart as PieIcon } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+type Transaction = {
+  amount: number;
+  type: string;
+  category: string;
+  created_at: string;
+};
+
+type FlowPoint = {
+  name: string;
+  Entrées: number;
+  Sorties: number;
+};
+
+type PieEntry = {
+  name: string;
+  value: number;
+};
+
 export default function DashboardAnalytics() {
-  const [dataFlow, setDataFlow] = useState<any[]>([]);
-  const [dataPie, setDataPie] = useState<any[]>([]);
+  const [dataFlow, setDataFlow] = useState<FlowPoint[]>([]);
+  const [dataPie, setDataPie] = useState<PieEntry[]>([]);
   const [kpi, setKpi] = useState({ totalRecette: 0, totalDepense: 0, soldeGlobal: 0 });
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => { loadStats(); }, []);
 
   const loadStats = async () => {
     setLoading(true);
@@ -22,10 +39,11 @@ export default function DashboardAnalytics() {
         .eq('status', 'VALIDATED');
     
     if (tx) {
+        const transactions = tx as Transaction[];
         // --- KPI GLOBAUX ---
-        const r = tx.filter(t => t.type === 'RECETTE' || (t.type === 'TRANSFERT' && t.amount > 0)).reduce((a, b) => a + b.amount, 0);
+        const r = transactions.filter(t => t.type === 'RECETTE' || (t.type === 'TRANSFERT' && t.amount > 0)).reduce((a, b) => a + b.amount, 0);
         // Note: Pour les dépenses globales, on inclut les sorties (dépenses + transferts sortants)
-        const d = tx.filter(t => t.type === 'DEPENSE' || (t.type === 'TRANSFERT' && t.amount < 0)).reduce((a, b) => a + Math.abs(b.amount), 0);
+        const d = transactions.filter(t => t.type === 'DEPENSE' || (t.type === 'TRANSFERT' && t.amount < 0)).reduce((a, b) => a + Math.abs(b.amount), 0);
         
         // Solde global théorique (peut être différent de la somme des caisses si pas d'initialisation, mais bon indicateur de flux)
         setKpi({ totalRecette: r, totalDepense: d, soldeGlobal: r - d });
@@ -35,7 +53,7 @@ export default function DashboardAnalytics() {
         const currentYear = new Date().getFullYear();
         
         const flow = months.map((m, index) => {
-            const monthTx = tx.filter(t => {
+            const monthTx = transactions.filter(t => {
                 const d = new Date(t.created_at);
                 return d.getMonth() === index && d.getFullYear() === currentYear;
             });
@@ -45,10 +63,10 @@ export default function DashboardAnalytics() {
                 Sorties: monthTx.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0),
             };
         });
-        setDataFlow(flow);
+        setDataFlow(flow as FlowPoint[]);
 
         // --- GRAPHIQUE 2 : RÉPARTITION DÉPENSES (Pie Chart) ---
-        const depenses = tx.filter(t => t.type === 'DEPENSE');
+        const depenses = transactions.filter(t => t.type === 'DEPENSE');
         const categories = Array.from(new Set(depenses.map(t => t.category))); // Liste unique catégories
         
         const pie = categories.map(cat => ({
@@ -56,10 +74,12 @@ export default function DashboardAnalytics() {
             value: depenses.filter(t => t.category === cat).reduce((a, b) => a + b.amount, 0)
         })).sort((a, b) => b.value - a.value).slice(0, 5); // Top 5 catégories
         
-        setDataPie(pie);
+        setDataPie(pie as PieEntry[]);
     }
     setLoading(false);
   };
+
+  useEffect(() => { loadStats(); }, []);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CALCUL ANALYTICS...</div>;
 

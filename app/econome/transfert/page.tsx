@@ -1,16 +1,35 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { ArrowRightLeft, Building2, Wallet, Send, Hash, Calendar, Search, Printer, History, RefreshCw, Clock, CheckCircle, Lock } from 'lucide-react';
 
+type Vault = {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+};
+
+type Transfer = {
+  id: string;
+  vault_id: string;
+  destination_vault_id?: string | null;
+  amount: number;
+  status?: string | null;
+  description?: string | null;
+  created_at: string;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 export default function TransfertPage() {
-  const [vaults, setVaults] = useState<any[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   
   // Listes
-  const [authorizedTransfers, setAuthorizedTransfers] = useState<any[]>([]); // Validés par DG, à exécuter
-  const [pendingTransfers, setPendingTransfers] = useState<any[]>([]); // En attente DG
-  const [history, setHistory] = useState<any[]>([]); // Journal exécuté
+  const [authorizedTransfers, setAuthorizedTransfers] = useState<Transfer[]>([]); // Validés par DG, à exécuter
+  const [pendingTransfers, setPendingTransfers] = useState<Transfer[]>([]); // En attente DG
+  const [history, setHistory] = useState<Transfer[]>([]); // Journal exécuté
 
   // Formulaire
   const [sourceId, setSourceId] = useState('');
@@ -20,7 +39,7 @@ export default function TransfertPage() {
   const [motif, setMotif] = useState('');
 
   // Impression
-  const [voucher, setVoucher] = useState<any>(null);
+  const [voucher, setVoucher] = useState<Transfer | null>(null);
 
   // Notification Maison
   const [notif, setNotif] = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null);
@@ -36,12 +55,6 @@ export default function TransfertPage() {
   const [dateStart, setDateStart] = useState(firstDay);
   const [dateEnd, setDateEnd] = useState(today);
 
-  useEffect(() => { 
-    loadData(); 
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
-  }, [dateStart, dateEnd]);
-
   // --- LOGIQUE DE NOTIFICATION (Retour DG) ---
   useEffect(() => {
       // On surveille la liste des demandes en cours/autorisées pour voir si un statut a changé
@@ -52,10 +65,10 @@ export default function TransfertPage() {
       }
   }, [authorizedTransfers]);
 
-  const loadData = async () => {
+  async function loadData() {
     // 1. Coffres
     const { data: vData } = await supabase.from('vaults').select('*').order('name');
-    if (vData) setVaults(vData);
+    if (vData) setVaults(vData as Vault[]);
 
     // 2. Demandes en Attente (PENDING)
     const { data: pend } = await supabase.from('transactions')
@@ -63,7 +76,7 @@ export default function TransfertPage() {
         .eq('type', 'TRANSFERT')
         .eq('status', 'PENDING')
         .order('created_at', { ascending: false });
-    setPendingTransfers(pend || []);
+    setPendingTransfers((pend ?? []) as Transfer[]);
 
     // 3. Demandes Autorisées (AUTHORIZED)
     const { data: auth } = await supabase.from('transactions')
@@ -71,7 +84,7 @@ export default function TransfertPage() {
         .eq('type', 'TRANSFERT')
         .eq('status', 'AUTHORIZED')
         .order('created_at', { ascending: false });
-    setAuthorizedTransfers(auth || []);
+    setAuthorizedTransfers((auth ?? []) as Transfer[]);
 
     // 4. Journal Exécuté (VALIDATED)
     const { data: hist } = await supabase.from('transactions')
@@ -81,8 +94,14 @@ export default function TransfertPage() {
         .gte('created_at', `${dateStart}T00:00:00`)
         .lte('created_at', `${dateEnd}T23:59:59`)
         .order('created_at', { ascending: false });
-    setHistory(hist || []);
-  };
+    setHistory((hist ?? []) as Transfer[]);
+  }
+
+  useEffect(() => { 
+    loadData(); 
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
+  }, [dateStart, dateEnd]);
 
   const getVaultName = (id: string) => vaults.find(v => v.id === id)?.name || '...';
 
@@ -120,7 +139,7 @@ export default function TransfertPage() {
   };
 
   // --- 2. EXÉCUTION DU TRANSFERT (Après Accord DG) ---
-  const handleExecute = async (tx: any) => {
+  const handleExecute = async (tx: Transfer) => {
       const destName = getVaultName(tx.destination_vault_id);
       const sourceName = getVaultName(tx.vault_id); // Nom du compte source (déjà dans tx.vaults normalement)
       

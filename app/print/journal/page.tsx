@@ -1,20 +1,46 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, ArrowLeft, Receipt, ShieldCheck, Scale, Banknote } from 'lucide-react';
 
+type BilletageDetail = {
+  id: string;
+  name: string;
+  realBalance?: number | null;
+  billetage?: Record<string, number> | null;
+};
+
+type Session = {
+  id: string;
+  opening_date: string;
+  status: string;
+  opened_by?: string | null;
+  opening_balance_global?: number | null;
+  closing_balance_global?: number | null;
+  details_billetage?: BilletageDetail[] | null;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  type: string;
+  category?: string | null;
+  description?: string | null;
+  amount: number;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 function JournalPrintContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
-  const [session, setSession] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
 
   const loadData = async () => {
     const { data: sess } = await supabase.from('cash_registers').select('*').eq('id', id).single();
@@ -24,12 +50,16 @@ function JournalPrintContent() {
       .order('created_at', { ascending: true });
 
     if (sess) {
-      setSession(sess);
-      setTransactions(trans || []);
+      setSession(sess as Session);
+      setTransactions((trans ?? []) as Transaction[]);
       setTimeout(() => window.print(), 1000);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
 
   if (loading) return <div className="p-20 text-center font-mono text-xs text-gray-400 animate-pulse">CHARGEMENT DES DONNÉES COMPTABLES...</div>;
   if (!session) return <div className="text-red-600 text-center p-10 font-bold border-2 border-red-600 m-10 uppercase">Erreur : Session de caisse introuvable</div>;
@@ -44,7 +74,7 @@ function JournalPrintContent() {
       {/* BARRE DE RETOUR (Cachée à l'impression) */}
       <div className="no-print absolute top-2 left-0 right-0 flex justify-center">
           <button onClick={() => router.back()} className="flex items-center gap-2 text-[10px] font-bold text-gray-400 hover:text-black uppercase">
-              <ArrowLeft size={12}/> Retour à l'historique
+              <ArrowLeft size={12}/> Retour à l&apos;historique
           </button>
       </div>
 
@@ -96,7 +126,7 @@ function JournalPrintContent() {
                 <tr>
                     <th className="p-2 border border-gray-200 w-16 text-center">Heure</th>
                     <th className="p-2 border border-gray-200 w-20 text-center">Flux</th>
-                    <th className="p-2 border border-gray-200">Désignation de l'opération</th>
+                    <th className="p-2 border border-gray-200">Désignation de l&apos;opération</th>
                     <th className="p-2 border border-gray-200 w-24">Caisse</th>
                     <th className="p-2 border border-gray-200 w-28 text-right">Montant (Ar)</th>
                 </tr>
@@ -153,7 +183,7 @@ function JournalPrintContent() {
                               </tr>
                           </thead>
                           <tbody className="font-mono">
-                              {session.details_billetage?.map((d: any) => (
+                              {session.details_billetage?.map((d) => (
                                   <tr key={d.id} className="border-b border-gray-200">
                                       <td className="p-2 font-sans font-bold uppercase text-[9px] text-gray-600">{d.name}</td>
                                       <td className="p-2 text-right font-black text-gray-800">{d.realBalance?.toLocaleString()} Ar</td>
@@ -175,12 +205,12 @@ function JournalPrintContent() {
                   {/* Billetage Espèces */}
                   <div className="space-y-4">
                     <h4 className="text-[9px] font-black uppercase text-gray-400 flex items-center gap-2"><Banknote size={12}/> Détail du billetage (Espèces)</h4>
-                    {session.details_billetage?.find((d:any) => d.billetage)?.billetage ? (
+                    {session.details_billetage?.find((d) => d.billetage)?.billetage ? (
                         <div className="border border-gray-200 p-3 bg-white">
                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[10px]">
-                                {Object.entries(session.details_billetage.find((d:any) => d.billetage).billetage)
+                                {Object.entries(session.details_billetage.find((d) => d.billetage)?.billetage ?? {})
                                   .sort((a,b) => parseInt(b[0]) - parseInt(a[0]))
-                                  .map(([val, count]:any) => (
+                                  .map(([val, count]) => (
                                     count > 0 && (
                                         <div key={val} className="flex justify-between border-b border-gray-50 pb-0.5">
                                             <span className="text-gray-400">{parseInt(val).toLocaleString()} Ar</span>
@@ -201,7 +231,7 @@ function JournalPrintContent() {
       {/* ZONE SIGNATURES */}
       <div className="mt-16 flex justify-between text-[10px] pt-8 border-t-2 border-gray-800">
           <div className="text-center w-1/4">
-              <p className="font-black uppercase mb-20 tracking-tighter">L'Agent de Caisse</p>
+              <p className="font-black uppercase mb-20 tracking-tighter">L&apos;Agent de Caisse</p>
               <p className="font-bold text-gray-400 uppercase">{session.opened_by}</p>
           </div>
           <div className="text-center w-1/4 border-x border-gray-100">

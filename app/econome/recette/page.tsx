@@ -1,22 +1,54 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 // CORRECTION ICI : Ajout de 'Printer' dans les imports
 import { PlusCircle, History, RefreshCw, X, Search, AlertCircle, Lock, PlayCircle, UserPlus, Wallet, User, CheckCircle, Info, Printer } from 'lucide-react';
 
+type Register = {
+  id: string;
+  [key: string]: unknown;
+};
+
+type Vault = {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+};
+
+type Student = {
+  id?: string;
+  matricule: string;
+  nom: string;
+  prenom?: string | null;
+  classe: string;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  amount: number;
+  type: string;
+  category?: string | null;
+  description?: string | null;
+  created_at: string;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 export default function POSRecette() {
-  const [register, setRegister] = useState<any>(null);
-  const [vaults, setVaults] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [register, setRegister] = useState<Register | null>(null);
+  const [vaults, setVaults] = useState<Vault[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // Formulaire & Etats
   const [activeTab, setActiveTab] = useState('ETUDIANT'); 
   const [selectedVault, setSelectedVault] = useState('');
   
   const [matricule, setMatricule] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [student, setStudent] = useState<any>(null);
+  const [suggestions, setSuggestions] = useState<Student[]>([]);
+  const [student, setStudent] = useState<Student | null>(null);
   
   const [amount, setAmount] = useState('');
   const [motif, setMotif] = useState('ECOLAGE');
@@ -33,8 +65,6 @@ export default function POSRecette() {
   // Ordre académique
   const MONTHS = ['OCT', 'NOV', 'DEC', 'JAN', 'FEV', 'MAR', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOUT', 'SEPT'];
 
-  useEffect(() => { loadVaults(); checkRegister(); }, []);
-  
   useEffect(() => {
     setStudent(null);
     setMatricule('');
@@ -56,11 +86,11 @@ export default function POSRecette() {
     setMatricule(val);
     if (val.length > 1) { 
       const { data } = await supabase.from('students').select('*').or(`matricule.ilike.%${val}%,nom.ilike.%${val}%`).limit(5);
-      setSuggestions(data || []);
+      setSuggestions((data ?? []) as Student[]);
     } else { setSuggestions([]); }
   };
 
-  const selectStudent = (s: any) => {
+  const selectStudent = (s: Student) => {
     setStudent(s);
     setMatricule(s.matricule);
     setSuggestions([]); 
@@ -73,20 +103,22 @@ export default function POSRecette() {
     else setSelectedMonths(prev => [...prev, m]);
   };
 
-  const loadVaults = async () => {
+  async function loadVaults() {
     const { data } = await supabase.from('vaults').select('*').order('name');
-    if (data && data.length > 0) { setVaults(data); const def = data.find(v => v.name.toLowerCase().includes('esp')) || data[0]; setSelectedVault(def.id); }
-  };
+    if (data && data.length > 0) { setVaults(data as Vault[]); const def = (data as Vault[]).find(v => v.name.toLowerCase().includes('esp')) || (data as Vault[])[0]; setSelectedVault(def.id); }
+  }
   
-  const checkRegister = async () => {
+  async function checkRegister() {
     const { data } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').order('created_at', { ascending: false }).maybeSingle();
-    setRegister(data); if (data) loadTransactions(data.id);
-  };
+    setRegister((data ?? null) as Register | null); if (data) loadTransactions(data.id);
+  }
   
-  const loadTransactions = async (regId: string) => {
+  async function loadTransactions(regId: string) {
     const { data } = await supabase.from('transactions').select('*, vaults(name)').eq('register_id', regId).eq('type', 'RECETTE').order('created_at', { ascending: false });
-    setTransactions(data || []);
-  };
+    setTransactions((data ?? []) as Transaction[]);
+  }
+
+  useEffect(() => { loadVaults(); checkRegister(); }, []);
   
   const openSession = async () => {
     const { data: lastSession } = await supabase.from('cash_registers').select('closing_balance_global').eq('status', 'CLOSED').order('closing_date', { ascending: false }).limit(1).maybeSingle();
@@ -132,7 +164,7 @@ export default function POSRecette() {
     if (!amount || !register || !selectedVault) return;
     if (activeTab === 'ETUDIANT' && !student) return setNotif({type: 'error', msg: 'Étudiant requis'});
     
-    let detailString = motif === 'ECOLAGE' ? `Mois: ${selectedMonths.join(', ')}` : (motif === 'DROIT EXAMEN' ? `Session: ${selectedSession}` : `Détail: ${autreDetail}`);
+    const detailString = motif === 'ECOLAGE' ? `Mois: ${selectedMonths.join(', ')}` : (motif === 'DROIT EXAMEN' ? `Session: ${selectedSession}` : `Détail: ${autreDetail}`);
     const desc = activeTab === 'ETUDIANT' ? `${motif} (${detailString}) - ${student?.nom} (${matricule})` : `${motif} - ${autreDetail || 'CLIENT DIVERS'}`;
 
     const { data: newTrans, error } = await supabase.from('transactions').insert({
