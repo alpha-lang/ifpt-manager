@@ -29,9 +29,9 @@ export default function Sidebar() {
     // --- NAVIGATION DG (Liens alignés sur ton terminal) ---
     { role: 'DG', label: 'Supervision Globale', icon: PieChart, link: '/dg' },
     { role: 'DG', label: 'Journal & Audit', icon: DollarSign, link: '/dg/audit' },
-    { role: 'DG', label: 'Traitement Paies', icon: Activity, link: '/dg/salaires/paie' }, // LIEN CORRIGÉ
-    { role: 'DG', label: 'Pointage RH', icon: UserCheck, link: '/dg/salaires/pointage' }, // LIEN CORRIGÉ
-    { role: 'DG', label: 'Registre Personnel', icon: Users, link: '/dg/salaires/employes' }, // LIEN CORRIGÉ
+    { role: 'DG', label: 'Traitement Paies', icon: Activity, link: '/dg/salaires' }, // LIEN CORRIGÉ
+    { role: 'DG', label: 'Pointage RH', icon: UserCheck, link: '/app/dg/salaires/components/PointageJournalier' }, // LIEN CORRIGÉ
+    { role: 'DG', label: 'Registre Personnel', icon: Users, link: '/dg/salaires/components/EmployesList.tsx' }, // LIEN CORRIGÉ
     { role: 'DG', label: 'Journal des Paies', icon: FileText, link: '/dg/salaires/journal' },
     { role: 'DG', label: 'Équipe Économes', icon: ShieldCheck, link: '/dg/users' },
     { role: 'DG', label: 'Paramètres Admin', icon: Settings, link: '/dg/parametres' },
