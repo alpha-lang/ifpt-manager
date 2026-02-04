@@ -17,6 +17,7 @@ type Register = {
 type Vault = {
   id: string;
   name: string;
+  balance?: number | null;
   [key: string]: unknown;
 };
 
@@ -73,7 +74,7 @@ export default function DepensePage() {
       // 1. Caisse & Coffres
       const { data: rData } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').maybeSingle();
       setRegister((rData ?? null) as Register | null);
-      const { data: vData } = await supabase.from('vaults').select('id, name').order('name');
+      const { data: vData } = await supabase.from('vaults').select('id, name, balance').order('name');
       setVaults((vData ?? []) as Vault[]);
 
       if (rData) {
@@ -119,6 +120,25 @@ export default function DepensePage() {
   }, []);
 
   // --- ACTIONS ---
+  const getVaultBalance = async (vaultId: string) => {
+      const vault = vaults.find(v => v.id === vaultId);
+      const baseBalance = vault?.balance ?? 0;
+      const { data: tx } = await supabase.from('transactions')
+          .select('amount, type')
+          .eq('vault_id', vaultId)
+          .eq('status', 'VALIDATED');
+
+      if (!tx) return baseBalance;
+
+      const movements = (tx as Array<{ type: string; amount: number }>).reduce((acc, t) => {
+          if (t.type === 'RECETTE') return acc + t.amount;
+          if (t.type === 'DEPENSE') return acc - t.amount;
+          if (t.type === 'TRANSFERT') return acc + t.amount;
+          return acc;
+      }, 0);
+
+      return baseBalance + movements;
+  };
 
   // 1. Soumettre une demande (Impression Bordereau)
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,6 +171,11 @@ export default function DepensePage() {
       });
 
       if (vaultId) {
+          const vaultBalance = await getVaultBalance(vaultId);
+          if (vaultBalance <= 0 || vaultBalance - tx.amount < 0) {
+              setNotif({ type: 'error', msg: 'Solde insuffisant.' });
+              return;
+          }
           await supabase.from('transactions').update({
               status: 'VALIDATED', vault_id: vaultId, register_id: register.id, updated_at: new Date().toISOString()
           }).eq('id', tx.id);
@@ -170,6 +195,11 @@ export default function DepensePage() {
       });
 
       if (vaultId) {
+          const vaultBalance = await getVaultBalance(vaultId);
+          if (vaultBalance <= 0 || vaultBalance - req.amount < 0) {
+              setNotif({ type: 'error', msg: 'Solde insuffisant.' });
+              return;
+          }
           const { error } = await supabase.from('transactions').insert({
               register_id: register.id, vault_id: vaultId, type: 'DEPENSE', category: 'SALAIRE',
               amount: req.amount, description: `Paie: ${req.beneficiary} - ${req.description}`,
