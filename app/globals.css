@@ -1,26 +1,149 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+/* --- 1. CONFIGURATION DE BASE (STYLE ERP DENSE) --- */
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground-rgb: 30, 41, 59; /* Slate 800 */
+    --background-rgb: 241, 245, 249; /* Slate 100 */
+  }
+
+  html, body {
+    @apply overflow-hidden h-full antialiased text-slate-800 bg-[#f0f2f5];
+    font-size: 12px; /* Réduction pour plus de densité informationnelle */
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Focus universel type logiciel */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-1;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* --- 2. COMPOSANTS UI (SAGE COMPACT STYLE) --- */
+@layer components {
+  /* Inputs techniques */
+  input, select, textarea {
+    @apply h-8 px-2 py-1 bg-white border border-slate-300 rounded shadow-sm transition-colors;
+    @apply focus:border-blue-600 focus:ring-0;
+    @apply disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed;
+    font-size: 11px !important;
+    font-weight: 600;
+  }
+
+  /* Tableaux type "Grand Livre" */
+  table {
+    @apply border-separate border-spacing-0;
+  }
+
+  th {
+    @apply h-8 px-3 py-1 bg-slate-100 text-slate-500 font-black uppercase tracking-tighter border-b border-r border-slate-200 last:border-r-0;
+    font-size: 9px !important;
+  }
+
+  td {
+    @apply px-3 py-1.5 border-b border-r border-slate-100 last:border-r-0 transition-colors;
+  }
+
+  /* Boutons Rigides (ERP Style) */
+  button {
+    @apply flex items-center justify-center gap-1.5 font-bold uppercase tracking-tight transition-all;
+    @apply active:translate-y-[1px] disabled:grayscale disabled:opacity-50;
+  }
+}
+
+/* --- 3. UTILITAIRES & SCROLLBARS (EXTRA-FINES) --- */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400;
+}
+
+/* Forcer la police Monospace pour les chiffres (Précision comptable) */
+.font-mono {
+  font-family: 'JetBrains Mono', 'ui-monospace', 'SFMono-Regular', monospace;
+  letter-spacing: -0.02em;
+}
+
+/* Animation d'entrée fluide */
+.animate-in-faint {
+  animation: fadeInFaint 0.2s ease-out forwards;
+}
+
+@keyframes fadeInFaint {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- 4. SWEETALERT2 (ADMINISTRATION PRO) --- */
+.swal2-popup {
+  @apply rounded-none border border-slate-400 shadow-2xl !important;
+  font-family: inherit !important;
+  padding: 1.5rem !important;
+}
+
+.swal2-title {
+  @apply text-sm font-black uppercase tracking-widest text-slate-800 !important;
+  padding-top: 0 !important;
+}
+
+.swal2-html-container {
+  @apply text-xs text-slate-600 !important;
+  margin: 1rem 0 !important;
+}
+
+.swal2-confirm {
+  @apply bg-blue-700 rounded-none text-[10px] font-black uppercase tracking-widest px-6 !important;
+}
+
+.swal2-cancel {
+  @apply bg-slate-200 text-slate-700 rounded-none text-[10px] font-black uppercase tracking-widest px-6 !important;
+}
+
+.swal2-input {
+  @apply h-8 rounded-none border-slate-300 text-xs font-bold !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+
+/* --- 5. MOTEUR D'IMPRESSION (ULTRA-CLEAN) --- */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  body {
+    background: white !important;
+    font-size: 10pt;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Masquage des éléments de navigation logicielle */
+  .no-print, aside, nav, button, .fixed {
+    display: none !important;
+  }
+
+  /* Optimisation des bordures pour impression noir et blanc */
+  .border, .border-b, .border-r, table, td, th {
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Forcer le rendu des couleurs pour les badges Recette/Dépense */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Éviter de couper les lignes d'un tableau sur deux pages */
+  tr {
+    page-break-inside: avoid !important;
+  }
 }
