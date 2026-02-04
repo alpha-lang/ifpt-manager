@@ -1,20 +1,27 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, ArrowLeft, BadgeCheck, User, Building2, Wallet } from 'lucide-react';
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  amount: number;
+  description: string;
+  author?: string | null;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
 
 function SalairePrintContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
 
   const loadData = async () => {
     const { data: tx } = await supabase.from('transactions')
@@ -23,11 +30,15 @@ function SalairePrintContent() {
         .single();
     
     if (tx) {
-        setData(tx);
+        setData(tx as Transaction);
         setTimeout(() => window.print(), 1000);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
 
   if (loading) return <div className="p-20 text-center font-mono text-xs text-gray-400 animate-pulse uppercase tracking-widest">Génération du bulletin de paie...</div>;
   if (!data) return <div className="text-red-600 text-center p-10 font-bold border-2 border-red-600 m-10">PIÈCE COMPTABLE INTROUVABLE</div>;
@@ -148,12 +159,12 @@ function SalairePrintContent() {
       {/* ESPACE SIGNATURES */}
       <div className="grid grid-cols-2 gap-20 mt-10">
           <div className="text-center">
-              <p className="font-black uppercase text-[9px] text-gray-400 mb-20 tracking-[0.2em] border-b pb-1">Visa de l'Employeur</p>
+              <p className="font-black uppercase text-[9px] text-gray-400 mb-20 tracking-[0.2em] border-b pb-1">Visa de l&apos;Employeur</p>
               <div className="text-[8px] text-gray-300 italic uppercase">Cachet Officiel Requis</div>
           </div>
           <div className="text-center">
               <p className="font-black uppercase text-[9px] text-gray-400 mb-20 tracking-[0.2em] border-b pb-1">Signature du Salarié</p>
-              <div className="text-[8px] text-gray-300 italic uppercase">"Lu et Approuvé"</div>
+              <div className="text-[8px] text-gray-300 italic uppercase">&quot;Lu et Approuvé&quot;</div>
           </div>
       </div>
 

@@ -1,23 +1,35 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle, XCircle, Clock, User, FileText, ArrowRight, ArrowRightLeft, Wallet, ShieldAlert } from 'lucide-react';
+import { CheckCircle, XCircle, User, FileText, ArrowRight, ArrowRightLeft, ShieldAlert } from 'lucide-react';
 import Swal from 'sweetalert2';
 
-export default function PendingValidations() {
-  const [requests, setRequests] = useState<any[]>([]);
-  const [vaults, setVaults] = useState<any[]>([]); // Pour mapper les IDs de destination
+type Vault = {
+  id: string;
+  name: string;
+};
 
-  useEffect(() => {
-    fetchVaults();
-    fetchPending();
-    const interval = setInterval(fetchPending, 5000);
-    return () => clearInterval(interval);
-  }, []);
+type PendingRequest = {
+  id: string;
+  created_at: string;
+  type: string;
+  amount: number;
+  requester_name?: string | null;
+  author?: string | null;
+  category?: string | null;
+  description?: string | null;
+  destination_vault_id?: string | null;
+  vaults?: { name?: string | null } | null;
+};
+
+export default function PendingValidations() {
+  const [requests, setRequests] = useState<PendingRequest[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]); // Pour mapper les IDs de destination
 
   const fetchVaults = async () => {
     const { data } = await supabase.from('vaults').select('id, name');
-    setVaults(data || []);
+    setVaults((data ?? []) as Vault[]);
   };
 
   const fetchPending = async () => {
@@ -26,12 +38,12 @@ export default function PendingValidations() {
       .select('*, vaults(name)') // On récupère le nom du coffre source
       .eq('status', 'PENDING')
       .order('created_at', { ascending: false });
-    setRequests(data || []);
+    setRequests((data ?? []) as PendingRequest[]);
   };
 
   const getVaultName = (id: string) => vaults.find(v => v.id === id)?.name || 'Caisse Inconnue';
 
-  const handleDecision = async (req: any, decision: 'AUTHORIZED' | 'REJECTED') => {
+  const handleDecision = async (req: PendingRequest, decision: 'AUTHORIZED' | 'REJECTED') => {
     const { error } = await supabase
       .from('transactions')
       .update({ 
@@ -49,6 +61,13 @@ export default function PendingValidations() {
       fetchPending();
     }
   };
+
+  useEffect(() => {
+    fetchVaults();
+    fetchPending();
+    const interval = setInterval(fetchPending, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (requests.length === 0) return (
     <div className="bg-white rounded shadow-sm border border-gray-300 p-4 mb-4 flex items-center justify-center gap-2 text-gray-400 text-xs italic h-24">

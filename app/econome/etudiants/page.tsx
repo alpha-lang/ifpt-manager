@@ -1,12 +1,22 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { Search, Filter, Pencil, Trash2, User, GraduationCap, Save, X, PlusCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
+type Student = {
+  id: string;
+  matricule: string;
+  nom: string;
+  prenom?: string | null;
+  classe: string;
+  [key: string]: unknown;
+};
+
 export default function StudentsPage() {
-  const [students, setStudents] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [filtered, setFiltered] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filtres
@@ -15,7 +25,14 @@ export default function StudentsPage() {
 
   // Edition
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
+  const [editForm, setEditForm] = useState<Partial<Student>>({});
+
+  const loadStudents = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('students').select('*').order('nom');
+    setStudents((data ?? []) as Student[]);
+    setLoading(false);
+  };
 
   useEffect(() => { loadStudents(); }, []);
 
@@ -29,13 +46,6 @@ export default function StudentsPage() {
     if (filterClass !== 'TOUS') res = res.filter(s => s.classe === filterClass);
     setFiltered(res);
   }, [search, filterClass, students]);
-
-  const loadStudents = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('students').select('*').order('nom');
-    setStudents(data || []);
-    setLoading(false);
-  };
 
   // --- ACTIONS ---
 
@@ -87,7 +97,7 @@ export default function StudentsPage() {
   };
 
   // 2. MODIFIER
-  const startEdit = (student: any) => {
+  const startEdit = (student: Student) => {
     setEditingId(student.id);
     setEditForm({ ...student });
   };

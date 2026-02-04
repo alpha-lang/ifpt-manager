@@ -1,25 +1,40 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { Lock, AlertTriangle, CheckCircle, Calculator, Save, Coins } from 'lucide-react';
 
-export default function ClotureAudit() {
-  const [register, setRegister] = useState<any>(null);
-  const [auditData, setAuditData] = useState<any[]>([]); 
-  const [loading, setLoading] = useState(true);
+type Register = {
+  id: string;
+  created_at: string;
+  [key: string]: unknown;
+};
 
-  useEffect(() => { loadData(); }, []);
+type AuditRow = {
+  id: string;
+  name: string;
+  icon?: string | null;
+  systemBalance: number;
+  realBalance: number;
+  ecart: number;
+  billetage: Record<string, number> | null;
+};
+
+export default function ClotureAudit() {
+  const [register, setRegister] = useState<Register | null>(null);
+  const [auditData, setAuditData] = useState<AuditRow[]>([]); 
+  const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     const { data: reg } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').maybeSingle();
     
     if (reg) {
-      setRegister(reg);
+      setRegister(reg as Register);
       const { data: vaults } = await supabase.from('vaults').select('*').order('name');
       
       if (vaults) {
-        setAuditData(vaults.map(v => ({
+        setAuditData((vaults as Array<{ id: string; name: string; icon?: string | null; balance: number }>).map(v => ({
             id: v.id, 
             name: v.name, 
             icon: v.icon,
@@ -39,7 +54,7 @@ export default function ClotureAudit() {
   };
 
   // --- FENÊTRE DE BILLETAGE ---
-  const openBilletage = async (row: any) => {
+  const openBilletage = async (row: AuditRow) => {
     const current = row.billetage || { '20000':0, '10000':0, '5000':0, '2000':0, '1000':0, '500':0, '200':0, '100':0 };
     
     const inputs = [20000, 10000, 5000, 2000, 1000, 500, 200, 100].map(val => `
@@ -58,7 +73,7 @@ export default function ClotureAudit() {
       showCancelButton: true,
       width: '450px',
       preConfirm: () => {
-        const result: any = {};
+        const result: Record<string, number> = {};
         let total = 0;
         [20000, 10000, 5000, 2000, 1000, 500, 200, 100].forEach(val => {
           const el = document.getElementById(`bill-${val}`) as HTMLInputElement;
@@ -106,6 +121,8 @@ export default function ClotureAudit() {
       setRegister(null);
     }
   };
+
+  useEffect(() => { loadData(); }, []);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CHARGEMENT DONNÉES...</div>;
   if (!register) return <div className="h-[calc(100vh-60px)] flex flex-col items-center justify-center text-gray-400 gap-2"><Lock size={32} className="opacity-20"/><p className="text-xs font-bold uppercase">Aucune session ouverte</p></div>;

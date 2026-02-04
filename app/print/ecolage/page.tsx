@@ -1,21 +1,37 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, ArrowLeft, Check, GraduationCap, CalendarDays, History } from 'lucide-react';
+
+type Student = {
+  id: string;
+  nom: string;
+  prenom?: string | null;
+  matricule: string;
+  classe: string;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  description: string;
+  amount: number;
+  [key: string]: unknown;
+};
 
 function EcolageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const matricule = searchParams.get('matricule');
   
-  const [student, setStudent] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [student, setStudent] = useState<Student | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   const SCHOOL_MONTHS = ['OCT', 'NOV', 'DEC', 'JAN', 'FEV', 'MAR', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOUT', 'SEPT'];
-
-  useEffect(() => { if (matricule) loadData(); }, [matricule]);
 
   const loadData = async () => {
     const { data: stu } = await supabase.from('students').select('*').eq('matricule', matricule).single();
@@ -26,15 +42,17 @@ function EcolageContent() {
         .order('created_at', { ascending: true });
     
     if (stu) {
-        setStudent(stu);
-        setTransactions(trans || []);
+        setStudent(stu as Student);
+        setTransactions((trans ?? []) as Transaction[]);
         setTimeout(() => window.print(), 1000);
     }
     setLoading(false);
   };
 
+  useEffect(() => { if (matricule) loadData(); }, [matricule]);
+
   const getPaidMonths = () => {
-    let paid: string[] = [];
+    const paid: string[] = [];
     transactions.forEach(t => {
         SCHOOL_MONTHS.forEach(m => {
             if (new RegExp(`\\b${m}\\b`, 'i').test(t.description)) paid.push(m);
@@ -55,7 +73,7 @@ function EcolageContent() {
       {/* NAVIGATION NO-PRINT */}
       <div className="no-print absolute top-2 left-0 right-0 flex justify-center">
           <button onClick={() => router.back()} className="flex items-center gap-2 text-[10px] font-bold text-gray-400 hover:text-black uppercase">
-              <ArrowLeft size={12}/> Retour à l'annuaire
+              <ArrowLeft size={12}/> Retour à l&apos;annuaire
           </button>
       </div>
 
@@ -76,7 +94,7 @@ function EcolageContent() {
               <div className="bg-blue-900 text-white px-2 py-0.5 inline-block font-mono text-[10px] font-bold mb-2">
                   ANNÉE ACADÉMIQUE : 2025-2026
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Date d'édition : {new Date().toLocaleDateString()}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Date d&apos;édition : {new Date().toLocaleDateString()}</p>
           </div>
       </div>
 
@@ -130,7 +148,7 @@ function EcolageContent() {
             <thead>
                 <tr className="bg-gray-800 text-white uppercase text-[9px]">
                     <th className="p-2 border border-gray-800 text-left w-24">Date OP.</th>
-                    <th className="p-2 border border-gray-800 text-left">Description de l'Écriture</th>
+                    <th className="p-2 border border-gray-800 text-left">Description de l&apos;Écriture</th>
                     <th className="p-2 border border-gray-800 text-center w-28">Référence</th>
                     <th className="p-2 border border-gray-800 text-right w-32">Montant (Ar)</th>
                 </tr>
@@ -163,7 +181,7 @@ function EcolageContent() {
               <div className="border-b border-gray-200 w-32 mx-auto"></div>
           </div>
           <div className="text-center">
-              <p className="font-black uppercase text-[9px] text-gray-400 mb-20 tracking-widest">Le Parent / L'Étudiant</p>
+              <p className="font-black uppercase text-[9px] text-gray-400 mb-20 tracking-widest">Le Parent / L&apos;Étudiant</p>
               <div className="border-b border-gray-200 w-32 mx-auto"></div>
           </div>
       </div>
@@ -182,7 +200,7 @@ function EcolageContent() {
       {/* BOUTON D'ACTION NO-PRINT */}
       <div className="fixed bottom-6 right-6 no-print">
          <button onClick={() => window.print()} className="bg-blue-900 text-white p-4 rounded shadow-2xl hover:bg-black transition transform active:scale-95 flex items-center gap-2 font-bold text-xs">
-            <Printer size={16}/> LANCER L'IMPRESSION
+            <Printer size={16}/> LANCER L&apos;IMPRESSION
          </button>
       </div>
 

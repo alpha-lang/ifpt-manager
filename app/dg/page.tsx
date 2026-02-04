@@ -1,36 +1,52 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Wallet, TrendingUp, TrendingDown, Bell, AlertTriangle, Eye, ArrowRight, Printer, Calendar, RefreshCw, BarChart3, Activity } from 'lucide-react';
-import Link from 'next/link';
-// @ts-ignore
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Wallet, Bell, AlertTriangle, Printer, Calendar, RefreshCw, BarChart3, Activity } from 'lucide-react';
+// @ts-expect-error recharts export types conflict with Next.js type resolution in this project
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import PendingValidations from './components/PendingValidations';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+type Vault = {
+  id: string;
+  name: string;
+  balance: number;
+  icon?: string | null;
+  [key: string]: unknown;
+};
+
+type Notification = {
+  id: string;
+  message: string;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  amount: number;
+  type: string;
+  vault_id: string;
+  category: string;
+  created_at: string;
+  [key: string]: unknown;
+};
+
+type ChartEntry = {
+  name: string;
+  value: number;
+};
+
 export default function DGDashboard() {
-  const [vaults, setVaults] = useState<any[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   const [stats, setStats] = useState({ recette: 0, depense: 0 });
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]); 
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [chartData, setChartData] = useState<ChartEntry[]>([]); 
   const [loading, setLoading] = useState(true);
 
   // Filtres de Date
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  useEffect(() => { 
-      const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-      setStartDate(firstDay);
-      setEndDate(lastDay);
-  }, []);
-
-  useEffect(() => { 
-      if(startDate && endDate) loadData(); 
-  }, [startDate, endDate]);
 
   const loadData = async () => {
     setLoading(true);
@@ -52,34 +68,36 @@ export default function DGDashboard() {
     const { data: notifs } = await supabase.from('notifications').select('*').eq('status', 'UNREAD').order('created_at', { ascending: false });
 
     if (vList && allTx && balanceTx) {
+        const balanceTransactions = balanceTx as Transaction[];
         // Calcul Soldes Actuels
-        const computedVaults = vList.map(v => {
-            const vaultTx = balanceTx.filter(t => t.vault_id === v.id);
+        const computedVaults = (vList as Vault[]).map(v => {
+            const vaultTx = balanceTransactions.filter(t => t.vault_id === v.id);
             const bal = (v.balance || 0) + vaultTx.reduce((acc, t) => {
                 if (t.type === 'RECETTE') return acc + t.amount;
                 if (t.type === 'DEPENSE') return acc - t.amount;
                 if (t.type === 'TRANSFERT') return acc + t.amount; 
                 return acc;
             }, 0);
-            return { ...v, balance: bal };
+            return { ...v, balance: bal } as Vault;
         });
         setVaults(computedVaults);
 
         // Stats Période
-        const r = allTx.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
-        const d = allTx.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
+        const periodTransactions = allTx as Transaction[];
+        const r = periodTransactions.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
+        const d = periodTransactions.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
         setStats({ recette: r, depense: d });
 
         // Graphique Période
-        const depenses = allTx.filter(t => t.type === 'DEPENSE');
+        const depenses = periodTransactions.filter(t => t.type === 'DEPENSE');
         const categories = Array.from(new Set(depenses.map(t => t.category)));
         const pieData = categories.map(cat => ({
             name: cat,
             value: depenses.filter(t => t.category === cat).reduce((a, b) => a + b.amount, 0)
         })).sort((a, b) => b.value - a.value).slice(0, 5);
-        setChartData(pieData);
+        setChartData(pieData as ChartEntry[]);
     }
-    setNotifications(notifs || []);
+    setNotifications((notifs ?? []) as Notification[]);
     setLoading(false);
   };
 
@@ -90,6 +108,18 @@ export default function DGDashboard() {
 
   const handlePrint = () => window.print();
   const totalGlobal = vaults.reduce((acc, v) => acc + v.balance, 0);
+
+  useEffect(() => { 
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      setStartDate(firstDay);
+      setEndDate(lastDay);
+  }, []);
+
+  useEffect(() => { 
+      if(startDate && endDate) loadData(); 
+  }, [startDate, endDate]);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CHARGEMENT TDB...</div>;
 

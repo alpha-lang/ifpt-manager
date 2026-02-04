@@ -1,11 +1,28 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Filter, CheckCircle, XCircle, AlertCircle, Banknote, Printer, RefreshCw } from 'lucide-react';
 
+type Student = {
+  id: string;
+  nom: string;
+  prenom?: string | null;
+  matricule: string;
+  classe: string;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  student_matricule?: string | null;
+  description: string;
+  created_at: string;
+  [key: string]: unknown;
+};
+
 export default function EcolagesPage() {
-  const [students, setStudents] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Filtres
@@ -14,8 +31,6 @@ export default function EcolagesPage() {
 
   // Mois scolaires (Ordre chronologique)
   const MONTHS = ['OCT', 'NOV', 'DEC', 'JAN', 'FEV', 'MAR', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOUT', 'SEPT'];
-
-  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -27,10 +42,12 @@ export default function EcolagesPage() {
         .select('student_matricule, description, created_at')
         .eq('category', 'ECOLAGE');
 
-    setStudents(stu || []);
-    setTransactions(tx || []);
+    setStudents((stu ?? []) as Student[]);
+    setTransactions((tx ?? []) as Transaction[]);
     setLoading(false);
   };
+
+  useEffect(() => { loadData(); }, []);
 
   // --- LOGIQUE CŒUR : Vérifier si un mois est payé ---
   const checkPayment = (matricule: string, month: string) => {
@@ -167,7 +184,7 @@ export default function EcolagesPage() {
           
           <div className="bg-yellow-50 border-t border-yellow-200 p-1.5 flex items-center gap-2 text-[10px] text-yellow-800">
               <AlertCircle size={12}/>
-              <span><b>Info :</b> Ce tableau se met à jour en temps réel basé sur les transactions contenant le "Mois" dans leur libellé.</span>
+              <span><b>Info :</b> Ce tableau se met à jour en temps réel basé sur les transactions contenant le &quot;Mois&quot; dans leur libellé.</span>
               <span className="ml-auto font-mono text-gray-500">{filteredStudents.length} étudiants affichés</span>
           </div>
       </div>

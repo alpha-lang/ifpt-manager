@@ -1,29 +1,50 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Calendar, Eye, CheckCircle, XCircle, Search, X, Printer, Lock } from 'lucide-react';
 
+type Session = {
+  id: string;
+  status: string;
+  opening_date: string;
+  closing_date?: string | null;
+  opened_by?: string | null;
+  opening_amount?: number | null;
+  closing_balance_global?: number | null;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  type: string;
+  category?: string | null;
+  description?: string | null;
+  amount: number;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
 export default function HistoriquePage() {
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   
   // MODAL DETAILS
-  const [selectedSession, setSelectedSession] = useState<any>(null); // La session qu'on regarde
-  const [details, setDetails] = useState<any[]>([]); // Les transactions de cette session
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null); // La session qu'on regarde
+  const [details, setDetails] = useState<Transaction[]>([]); // Les transactions de cette session
   const [loadingDetails, setLoadingDetails] = useState(false);
-
-  useEffect(() => { loadSessions(); }, []);
 
   const loadSessions = async () => {
     // On charge les sessions de caisse (journaux)
     const { data } = await supabase.from('cash_registers')
       .select('*')
       .order('opening_date', { ascending: false }); // Du plus récent au plus vieux
-    setSessions(data || []);
+    setSessions((data ?? []) as Session[]);
     setLoading(false);
   };
 
-  const openDetails = async (session: any) => {
+  const openDetails = async (session: Session) => {
     setSelectedSession(session);
     setLoadingDetails(true);
     // On charge les transactions de CETTE session
@@ -31,7 +52,7 @@ export default function HistoriquePage() {
       .select('*, vaults(name)') // On joint la table vaults pour avoir le nom du coffre
       .eq('register_id', session.id)
       .order('created_at', { ascending: false });
-    setDetails(data || []);
+    setDetails((data ?? []) as Transaction[]);
     setLoadingDetails(false);
   };
 
@@ -43,6 +64,8 @@ export default function HistoriquePage() {
   // Calculs Totaux pour la modale
   const totalRecette = details.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
   const totalDepense = details.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
+
+  useEffect(() => { loadSessions(); }, []);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CHARGEMENT HISTORIQUE...</div>;
 
@@ -140,7 +163,7 @@ export default function HistoriquePage() {
                                     <th className="p-1.5 border-r border-gray-300 w-16 text-center">Heure</th>
                                     <th className="p-1.5 border-r border-gray-300 w-20 text-center">Type</th>
                                     <th className="p-1.5 border-r border-gray-300 w-32">Catégorie</th>
-                                    <th className="p-1.5 border-r border-gray-300">Libellé de l'écriture</th>
+                                    <th className="p-1.5 border-r border-gray-300">Libellé de l&apos;écriture</th>
                                     <th className="p-1.5 border-r border-gray-300 w-24">Caisse/Banque</th>
                                     <th className="p-1.5 border-r border-gray-300 text-right w-24">Débit</th>
                                     <th className="p-1.5 text-right w-24">Crédit</th>

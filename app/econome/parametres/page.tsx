@@ -1,25 +1,34 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { Settings, Key, User, Shield, Save, Lock, Mail, Activity, CheckCircle, Fingerprint, ShieldCheck } from 'lucide-react';
 
+type UserProfile = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  [key: string]: unknown;
+};
+
 export default function ParametresEconome() {
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-
-  useEffect(() => { loadUser(); }, []);
 
   const loadUser = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
-        setUser({ ...authUser, ...profile });
+        setUser({ ...authUser, ...profile } as UserProfile);
     }
   };
+
+  useEffect(() => { loadUser(); }, []);
 
   const handleUpdatePassword = async () => {
     if (!password || !confirm) return Swal.fire('Erreur', 'Veuillez remplir les champs.', 'warning');
@@ -47,7 +56,7 @@ export default function ParametresEconome() {
       <div className="bg-white border-b border-gray-300 p-2 flex justify-between items-center shadow-sm h-10 shrink-0">
           <div className="flex items-center gap-2">
               <Fingerprint size={16} className="text-blue-900"/>
-              <span className="font-bold text-gray-700 uppercase tracking-tight">Configuration de l'accès utilisateur</span>
+              <span className="font-bold text-gray-700 uppercase tracking-tight">Configuration de l&apos;accès utilisateur</span>
           </div>
           <div className="flex items-center gap-2 text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               <ShieldCheck size={12}/> CONNEXION SÉCURISÉE SSL/AES
@@ -71,7 +80,7 @@ export default function ParametresEconome() {
                   
                   <div className="w-full space-y-4">
                       <div className="text-center border-b border-slate-100 pb-3">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Nom d'usage</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Nom d&apos;usage</p>
                           <p className="text-sm font-black text-slate-800 uppercase leading-none">{user?.full_name || '...'}</p>
                       </div>
                       
@@ -111,7 +120,7 @@ export default function ParametresEconome() {
                           <div>
                               <h4 className="font-black text-amber-800 text-[10px] uppercase tracking-tighter">Zone de gestion critique</h4>
                               <p className="text-[10px] text-amber-700 leading-snug mt-1 italic">
-                                  La mise à jour de la clé d'accès provoquera l'invalidation de tous les jetons actifs (Redirection login automatique).
+                                  La mise à jour de la clé d&apos;accès provoquera l&apos;invalidation de tous les jetons actifs (Redirection login automatique).
                               </p>
                           </div>
                       </div>

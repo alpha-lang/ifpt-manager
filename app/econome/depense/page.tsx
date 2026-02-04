@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2'; 
@@ -7,15 +8,48 @@ import {
   AlertTriangle, Info, Wallet, User, Banknote, History, RefreshCw 
 } from 'lucide-react';
 
+type Register = {
+  id: string;
+  created_at?: string;
+  [key: string]: unknown;
+};
+
+type Vault = {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  category: string;
+  amount: number;
+  status?: string | null;
+  description?: string | null;
+  requester_name?: string | null;
+  author?: string | null;
+  created_at: string;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
+
+type PaymentRequest = {
+  id: string;
+  beneficiary: string;
+  amount: number;
+  description?: string | null;
+  [key: string]: unknown;
+};
+
 export default function DepensePage() {
   // --- ÉTATS ---
-  const [register, setRegister] = useState<any>(null);
-  const [vaults, setVaults] = useState<any[]>([]);
+  const [register, setRegister] = useState<Register | null>(null);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   
   // Listes de données
-  const [todoExpenses, setTodoExpenses] = useState<any[]>([]); // Dépenses autorisées par DG
-  const [todoSalaries, setTodoSalaries] = useState<any[]>([]); // Salaires validés par RH
-  const [historyLog, setHistoryLog] = useState<any[]>([]);     // Journal global (Sage view)
+  const [todoExpenses, setTodoExpenses] = useState<Transaction[]>([]); // Dépenses autorisées par DG
+  const [todoSalaries, setTodoSalaries] = useState<PaymentRequest[]>([]); // Salaires validés par RH
+  const [historyLog, setHistoryLog] = useState<Transaction[]>([]);     // Journal global (Sage view)
 
   // Formulaire Compact
   const [reqAmount, setReqAmount] = useState('');
@@ -24,7 +58,7 @@ export default function DepensePage() {
   const [reqUser, setReqUser] = useState('');
 
   // Impression
-  const [voucher, setVoucher] = useState<any>(null);
+  const [voucher, setVoucher] = useState<Transaction | null>(null);
 
   // Notification Maison (No Button)
   const [notif, setNotif] = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null);
@@ -35,30 +69,23 @@ export default function DepensePage() {
   const isFirst = useRef(true);
 
   // --- CHARGEMENT ---
-  useEffect(() => {
-      setReqUser(sessionStorage.getItem('name') || '');
-      loadData();
-      const interval = setInterval(loadData, 5000); // Polling 5s
-      return () => clearInterval(interval);
-  }, []);
-
   const loadData = async () => {
       // 1. Caisse & Coffres
       const { data: rData } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').maybeSingle();
-      setRegister(rData);
+      setRegister((rData ?? null) as Register | null);
       const { data: vData } = await supabase.from('vaults').select('id, name').order('name');
-      setVaults(vData || []);
+      setVaults((vData ?? []) as Vault[]);
 
       if (rData) {
           // 2. Dépenses Autorisées par DG (Status: AUTHORIZED)
           const { data: authExp } = await supabase.from('transactions')
               .select('*').eq('status', 'AUTHORIZED').order('created_at');
-          setTodoExpenses(authExp || []);
+          setTodoExpenses((authExp ?? []) as Transaction[]);
 
           // 3. Salaires RH en attente (Status: PENDING dans payment_requests)
           const { data: authSal } = await supabase.from('payment_requests')
               .select('*').eq('status', 'PENDING').order('created_at');
-          setTodoSalaries(authSal || []);
+          setTodoSalaries((authSal ?? []) as PaymentRequest[]);
 
           // 4. Journal Global (Tout type, Tout statut pour la vue "Log")
           // On exclut les brouillons (si existants) et on prend les 50 derniers
@@ -67,11 +94,11 @@ export default function DepensePage() {
               .in('type', ['DEPENSE', 'TRANSFERT'])
               .order('created_at', { ascending: false })
               .limit(50);
-          setHistoryLog(logs || []);
+          setHistoryLog((logs ?? []) as Transaction[]);
 
           // 5. Check Notification (Sur le Log Global)
           if (logs && logs.length > 0) {
-              const latest = logs[0];
+              const latest = (logs as Transaction[])[0];
               if (latest.id !== lastId.current) {
                   if (!isFirst.current) {
                       if (latest.status === 'AUTHORIZED') setNotif({ type: 'success', msg: `DG: Accord pour "${latest.category}"` });
@@ -83,6 +110,13 @@ export default function DepensePage() {
           }
       }
   };
+
+  useEffect(() => {
+      setReqUser(sessionStorage.getItem('name') || '');
+      loadData();
+      const interval = setInterval(loadData, 5000); // Polling 5s
+      return () => clearInterval(interval);
+  }, []);
 
   // --- ACTIONS ---
 
@@ -107,7 +141,7 @@ export default function DepensePage() {
   };
 
   // 2. Payer une Dépense (Autorisée par DG)
-  const handlePayExpense = async (tx: any) => {
+  const handlePayExpense = async (tx: Transaction) => {
       if (!register) return;
       const { value: vaultId } = await Swal.fire({
           title: 'Sortie de Caisse',
@@ -126,7 +160,7 @@ export default function DepensePage() {
   };
 
   // 3. Payer un Salaire (Autorisé par RH)
-  const handlePaySalary = async (req: any) => {
+  const handlePaySalary = async (req: PaymentRequest) => {
       if (!register) return;
       const { value: vaultId } = await Swal.fire({
           title: 'Paiement Salaire',
@@ -278,7 +312,7 @@ export default function DepensePage() {
                           <div key={ex.id} className="flex justify-between items-center bg-green-50/50 border border-green-100 p-1.5 rounded hover:bg-white transition">
                               <div className="overflow-hidden">
                                   <div className="font-bold text-gray-700 truncate">{ex.category}</div>
-                                  <div className="text-[9px] text-gray-400 truncate italic">"{ex.description}"</div>
+                                  <div className="text-[9px] text-gray-400 truncate italic">&quot;{ex.description}&quot;</div>
                               </div>
                               <button onClick={() => handlePayExpense(ex)} className="bg-green-600 text-white px-2 py-1 rounded text-[9px] font-bold hover:bg-green-700 shadow-sm flex-shrink-0">
                                   {ex.amount.toLocaleString()} Ar

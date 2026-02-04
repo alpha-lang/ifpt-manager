@@ -42,8 +42,9 @@ export default function CreateEconomePage() {
       Toast.fire({ icon: 'success', title: 'Économe créé avec succès' });
       router.push('/dg/users');
 
-    } catch (err: any) {
-      Swal.fire('Erreur', err.message, 'error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      Swal.fire('Erreur', message, 'error');
     } finally {
       setLoading(false);
     }

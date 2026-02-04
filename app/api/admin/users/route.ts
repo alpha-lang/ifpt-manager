@@ -44,9 +44,10 @@ export async function GET() {
 
     return NextResponse.json(combinedData);
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Erreur API Users:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -104,8 +105,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, message });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Erreur API Action:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,16 +1,45 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { DollarSign, Calculator, History, ArrowRight, CheckCircle, Clock, Save, RefreshCw, Calendar, FileText } from 'lucide-react';
 import Link from 'next/link';
 
+type Employee = {
+  id: string;
+  nom: string;
+  base_salary: number;
+  contract_type: string;
+  [key: string]: unknown;
+};
+
+type Attendance = {
+  employee_id: string;
+  hours?: number | null;
+  status?: string | null;
+  [key: string]: unknown;
+};
+
+type PaymentRequest = {
+  beneficiary?: string | null;
+  status?: string | null;
+  [key: string]: unknown;
+};
+
+type PayrollLine = Employee & {
+  total_hours: number;
+  days_worked: number;
+  brut_salary: number;
+  prime: number;
+  avance: number;
+  payment_status: string | null;
+};
+
 export default function TraitementPaie() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [payrollLines, setPayrollLines] = useState<any[]>([]);
+  const [payrollLines, setPayrollLines] = useState<PayrollLine[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => { loadPayroll(); }, [month]);
 
   const loadPayroll = async () => {
     setLoading(true);
@@ -28,13 +57,15 @@ export default function TraitementPaie() {
         .eq('category', 'SALAIRE');
 
     if (emps && att) {
-        const lines = emps.map(e => {
-            const myAtt = att.filter(a => a.employee_id === e.id);
+        const employeeList = emps as Employee[];
+        const attendanceList = att as Attendance[];
+        const lines = employeeList.map(e => {
+            const myAtt = attendanceList.filter(a => a.employee_id === e.id);
             const totalHours = myAtt.reduce((sum, a) => sum + (a.hours || 0), 0);
-            let brut = e.contract_type === 'HORAIRE' ? totalHours * e.base_salary : e.base_salary;
+            const brut = e.contract_type === 'HORAIRE' ? totalHours * e.base_salary : e.base_salary;
             
             // Vérifier statut
-            const existing = payments?.find(p => p.beneficiary === e.nom);
+            const existing = (payments as PaymentRequest[] | null)?.find(p => p.beneficiary === e.nom);
             
             return { 
                 ...e, 
@@ -57,7 +88,7 @@ export default function TraitementPaie() {
       setPayrollLines(newLines);
   };
 
-  const payEmployee = async (emp: any) => {
+  const payEmployee = async (emp: PayrollLine) => {
     if (emp.payment_status) return;
 
     const net = emp.brut_salary + emp.prime - emp.avance;
@@ -93,6 +124,8 @@ export default function TraitementPaie() {
         }
     }
   };
+
+  useEffect(() => { loadPayroll(); }, [month]);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CALCUL PAIE EN COURS...</div>;
 

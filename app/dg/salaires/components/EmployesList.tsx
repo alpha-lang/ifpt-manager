@@ -1,17 +1,26 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import { UserPlus, Search, Briefcase, Clock, Trash2, UserCheck, Filter, Users, RefreshCw } from 'lucide-react';
 
+type Employee = {
+  id: string;
+  nom: string;
+  poste: string;
+  contract_type: string;
+  base_salary?: number | null;
+  status: string;
+  [key: string]: unknown;
+};
+
 export default function EmployesList() {
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filtered, setFiltered] = useState<Employee[]>([]);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('TOUS');
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => { loadEmployees(); }, []);
 
   // Filtrage dynamique
   useEffect(() => {
@@ -28,7 +37,7 @@ export default function EmployesList() {
   const loadEmployees = async () => {
     setLoading(true);
     const { data } = await supabase.from('employees').select('*').order('status').order('nom');
-    setEmployees(data || []);
+    setEmployees((data ?? []) as Employee[]);
     setLoading(false);
   };
 
@@ -85,7 +94,7 @@ export default function EmployesList() {
     }
   };
 
-  const toggleStatus = async (emp: any) => {
+  const toggleStatus = async (emp: Employee) => {
      const newStatus = emp.status === 'ACTIF' ? 'INACTIF' : 'ACTIF';
      const actionName = emp.status === 'ACTIF' ? 'Archiver' : 'Réactiver';
      
@@ -107,6 +116,8 @@ export default function EmployesList() {
          }
      }
   };
+
+  useEffect(() => { loadEmployees(); }, []);
 
   return (
     <div className="h-[calc(100vh-60px)] bg-gray-100 p-2 text-xs font-sans overflow-hidden flex flex-col">

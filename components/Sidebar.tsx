@@ -6,20 +6,13 @@ import {
   FileText, Settings, ShieldCheck, UserCheck, Activity 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 export default function Sidebar() {
   const router = useRouter();
   const path = usePathname();
-  const [role, setRole] = useState('');
-  const [name, setName] = useState('');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setRole(sessionStorage.getItem('role') || '');
-    setName(sessionStorage.getItem('name') || 'Utilisateur');
-    setMounted(true);
-  }, []);
+  const [role] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('role') || '' : ''));
+  const [name] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('name') || 'Utilisateur' : 'Utilisateur'));
 
   const menus = [
     // --- NAVIGATION ÉCONOME (Liens alignés sur ton terminal) ---
@@ -66,8 +59,6 @@ export default function Sidebar() {
         } 
     });
   };
-
-  if (!mounted) return null; 
 
   return (
     <aside className="w-[220px] bg-[#1e293b] text-slate-300 flex flex-col h-screen fixed shadow-2xl z-50 text-[11px] border-r border-slate-700">

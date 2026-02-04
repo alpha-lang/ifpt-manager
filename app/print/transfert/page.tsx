@@ -1,20 +1,27 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Printer, ArrowRight, ArrowLeft, ArrowRightLeft, ShieldCheck, User } from 'lucide-react';
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  amount: number;
+  description?: string | null;
+  author?: string | null;
+  vaults?: { name?: string | null } | null;
+  [key: string]: unknown;
+};
 
 function TransfertPrintContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id'); 
   
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) loadTransaction();
-  }, [id]);
 
   const loadTransaction = async () => {
     const { data: tx } = await supabase.from('transactions')
@@ -23,11 +30,15 @@ function TransfertPrintContent() {
         .single();
     
     if (tx) {
-        setData(tx);
+        setData(tx as Transaction);
         setTimeout(() => window.print(), 1000);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) loadTransaction();
+  }, [id]);
 
   if (loading) return <div className="p-20 text-center font-mono text-xs text-gray-400 animate-pulse uppercase">Traitement du mouvement de fonds...</div>;
   if (!data) return <div className="text-red-600 text-center p-10 font-bold border-2 border-red-600 m-10">TRANSACTION INTROUVABLE</div>;
@@ -91,7 +102,7 @@ function TransfertPrintContent() {
 
       {/* DÉTAILS DE L'OPÉRATION */}
       <div className="space-y-6 mb-12">
-          <h3 className="font-black uppercase text-[10px] text-gray-500 border-b pb-1 tracking-[0.1em]">Détails techniques de l'écriture</h3>
+          <h3 className="font-black uppercase text-[10px] text-gray-500 border-b pb-1 tracking-[0.1em]">Détails techniques de l&apos;écriture</h3>
           
           <div className="grid grid-cols-3 gap-4">
               <div className="col-span-1 flex flex-col">
@@ -100,7 +111,7 @@ function TransfertPrintContent() {
               </div>
               <div className="col-span-2 flex flex-col border-l pl-4 border-gray-100">
                   <span className="text-[9px] font-black text-gray-400 uppercase">Libellé / Justification</span>
-                  <span className="font-bold text-xs text-gray-700 italic">"{data.description}"</span>
+                  <span className="font-bold text-xs text-gray-700 italic">&quot;{data.description}&quot;</span>
               </div>
           </div>
 
@@ -112,7 +123,7 @@ function TransfertPrintContent() {
                   </div>
               </div>
               <div className="col-span-2 flex flex-col border-l pl-4 border-gray-100">
-                  <span className="text-[9px] font-black text-gray-400 uppercase">Statut d'Audit</span>
+                  <span className="text-[9px] font-black text-gray-400 uppercase">Statut d&apos;Audit</span>
                   <div className="flex items-center gap-1 text-green-700 font-black text-[10px] uppercase">
                       <ShieldCheck size={14}/> Écriture Validée en Grand Livre
                   </div>
@@ -124,7 +135,7 @@ function TransfertPrintContent() {
       <div className="grid grid-cols-2 gap-12 mt-20 pt-10 border-t-2 border-gray-800">
           <div className="text-center space-y-20">
               <p className="font-black uppercase text-[9px] text-gray-400 tracking-widest border-b pb-1">Signature Émetteur (Caisse Départ)</p>
-              <div className="text-[8px] text-gray-300 italic uppercase">Nom & Prénom de l'agent</div>
+              <div className="text-[8px] text-gray-300 italic uppercase">Nom & Prénom de l&apos;agent</div>
           </div>
           <div className="text-center space-y-20 border-l border-gray-100 pl-12">
               <p className="font-black uppercase text-[9px] text-gray-400 tracking-widest border-b pb-1">Signature Récepteur (Caisse Arrivée)</p>

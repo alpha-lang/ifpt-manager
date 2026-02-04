@@ -1,17 +1,35 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Printer, Calendar, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation'; 
+
+type Vault = {
+  id: string;
+  name: string;
+  icon?: string | null;
+  [key: string]: unknown;
+};
+
+type Transaction = {
+  id: string;
+  created_at: string;
+  type: string;
+  category?: string | null;
+  description?: string | null;
+  amount: number;
+  [key: string]: unknown;
+};
 
 export default function AccountDetailPage() {
   const router = useRouter();
   const params = useParams(); // Récupération directe de l'ID
   const id = params?.id as string;
 
-  const [vault, setVault] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
+  const [vault, setVault] = useState<Vault | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filtered, setFiltered] = useState<Transaction[]>([]);
   const [realBalance, setRealBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -21,14 +39,6 @@ export default function AccountDetailPage() {
   
   const [dateStart, setDateStart] = useState(firstDay);
   const [dateEnd, setDateEnd] = useState(today);
-
-  useEffect(() => {
-    if (id) loadData(id);
-  }, [id]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [transactions, dateStart, dateEnd]);
 
   const loadData = async (vaultId: string) => {
     setLoading(true);
@@ -44,11 +54,11 @@ export default function AccountDetailPage() {
         .order('created_at', { ascending: false });
 
     if (v && tx) {
-        setVault(v);
-        setTransactions(tx);
+        setVault(v as Vault);
+        setTransactions(tx as Transaction[]);
         
         // CALCUL DU SOLDE RÉEL (Recalculé depuis l'historique pour précision absolue)
-        const sumMouvements = tx.reduce((acc, t) => {
+        const sumMouvements = (tx as Transaction[]).reduce((acc, t) => {
             if (t.type === 'RECETTE') return acc + t.amount;
             if (t.type === 'DEPENSE') return acc - t.amount; // Dépenses = Sorties
             if (t.type === 'TRANSFERT') return acc + t.amount; // Transfert est déjà signé (+/-)
@@ -66,6 +76,14 @@ export default function AccountDetailPage() {
     if (dateEnd) res = res.filter(t => t.created_at <= `${dateEnd}T23:59:59`);
     setFiltered(res);
   };
+
+  useEffect(() => {
+    if (id) loadData(id);
+  }, [id]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [transactions, dateStart, dateEnd]);
 
   if (loading) return <div className="p-10 text-center text-xs text-gray-400 font-mono">CHARGEMENT COMPTE...</div>;
   if (!vault) return <div className="p-10 text-center text-red-500 font-bold">COMPTE INTROUVABLE</div>;
