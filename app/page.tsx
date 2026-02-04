@@ -77,7 +77,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5] font-sans text-xs relative">
+    <div
+      className="min-h-screen flex items-center justify-center bg-[#f0f2f5] font-sans text-xs relative"
+      suppressHydrationWarning
+    >
       
       {/* --- NOTIFICATION COMPACTE (Style ERP) --- */}
       {notif && (
