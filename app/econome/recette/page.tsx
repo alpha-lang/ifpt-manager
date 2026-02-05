@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 // CORRECTION ICI : Ajout de 'Printer' dans les imports
-import { PlusCircle, History, RefreshCw, X, Search, AlertCircle, Lock, PlayCircle, UserPlus, Wallet, User, CheckCircle, Info, Printer } from 'lucide-react';
+import { PlusCircle, History, RefreshCw, X, Search, AlertCircle, Lock, UserPlus, Wallet, CheckCircle, Info, Printer } from 'lucide-react';
 
 type Register = {
   id: string;
@@ -120,27 +120,6 @@ export default function POSRecette() {
 
   useEffect(() => { loadVaults(); checkRegister(); }, []);
   
-  const openSession = async () => {
-    const { data: lastSession } = await supabase.from('cash_registers').select('closing_balance_global').eq('status', 'CLOSED').order('closing_date', { ascending: false }).limit(1).maybeSingle();
-    const soldeTheorique = lastSession ? lastSession.closing_balance_global : 0;
-    const today = new Date().toISOString().split('T')[0];
-
-    const { value: formValues } = await Swal.fire({
-        title: 'Ouverture Caisse',
-        html: `<div class="text-left text-xs"><p>Théorique: <b>${soldeTheorique.toLocaleString()} Ar</b></p><input id="swal-fond" type="number" class="swal2-input" placeholder="Fond Réel" style="font-size:14px;"></div>`,
-        showCancelButton: true, confirmButtonText: 'OUVRIR', confirmButtonColor: '#10b981',
-        preConfirm: () => {
-            const f = (document.getElementById('swal-fond') as HTMLInputElement).value;
-            return { date: today, fond: parseFloat(f || '0') };
-        }
-    });
-
-    if (formValues) {
-        await supabase.from('cash_registers').insert({ opening_date: formValues.date, status: 'OPEN', opening_amount: formValues.fond });
-        checkRegister();
-    }
-  };
-
   const createStudent = async () => {
     const { value: form } = await Swal.fire({
         title: 'Nouveau',
@@ -188,7 +167,7 @@ export default function POSRecette() {
   if (!register) return (
     <div className="h-screen flex flex-col items-center justify-center text-gray-400 bg-gray-100">
         <Lock size={32} className="mb-2"/>
-        <button onClick={openSession} className="bg-green-600 text-white px-4 py-2 rounded font-bold text-xs shadow hover:bg-green-700">OUVRIR LA CAISSE</button>
+        <p className="text-[10px] font-bold uppercase text-gray-500">Caisse fermée - ouverture depuis le tableau de bord</p>
     </div>
   );
 

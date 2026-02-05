@@ -1,16 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { AlertCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { supabase } from '@/lib/supabase';
 
 export default function EconomeLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const role = typeof window !== 'undefined' ? sessionStorage.getItem('role') : null;
-  const [isRegisterOpen, setIsRegisterOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
     // SÉCURITÉ : Vérification du rôle
@@ -18,27 +13,6 @@ export default function EconomeLayout({ children }: { children: React.ReactNode 
       router.push('/');
     }
   }, [role, router]);
-
-  useEffect(() => {
-    if (role !== 'ECONOME') return;
-    let isMounted = true;
-
-    const loadRegisterStatus = async () => {
-      const { data } = await supabase
-        .from('cash_registers')
-        .select('id')
-        .eq('status', 'OPEN')
-        .maybeSingle();
-      if (isMounted) {
-        setIsRegisterOpen(Boolean(data));
-      }
-    };
-
-    loadRegisterStatus();
-    return () => {
-      isMounted = false;
-    };
-  }, [role, pathname]);
 
   if (role !== 'ECONOME') return null;
 
@@ -56,15 +30,6 @@ export default function EconomeLayout({ children }: { children: React.ReactNode 
       {/* overflow-hidden ici force les pages enfants à gérer leur propre scroll (ex: tableaux) */}
       <main className="flex-1 h-full flex flex-col overflow-hidden relative bg-[#f0f2f5]">
         {children}
-        {isRegisterOpen === false && (
-          <Link
-            href="/econome/recette"
-            className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-[10px] font-bold uppercase text-white shadow-lg transition hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 animate-pulse"
-          >
-            <AlertCircle size={14} />
-            Ouvrir la caisse
-          </Link>
-        )}
       </main>
     </div>
   );
