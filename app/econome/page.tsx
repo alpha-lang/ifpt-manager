@@ -1,6 +1,6 @@
 'use client';
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle, CheckCircle, Clock, ArrowRight, RefreshCw, BarChart3, Coins } from 'lucide-react';
 import Link from 'next/link';
@@ -38,7 +38,7 @@ export default function EconomeDashboard() {
   const [vaults, setVaults] = useState<Vault[]>([]); // Pour les soldes réels
   const [loading, setLoading] = useState(true);
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     
@@ -80,7 +80,7 @@ export default function EconomeDashboard() {
     }
 
     setLoading(false);
-  };
+  }, []);
 
   const openSession = async () => {
     const { data: lastSession } = await supabase
@@ -136,7 +136,28 @@ export default function EconomeDashboard() {
     }
   };
 
-  useEffect(() => { loadDashboard(); }, []);
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('econome-dashboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
+        loadDashboard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vaults' }, () => {
+        loadDashboard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => {
+        loadDashboard();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadDashboard]);
   const cards = [
     { title: 'RECETTES (JOUR)', val: stats.recette, color: 'text-green-600', border: 'border-green-500', icon: TrendingUp },
     { title: 'DÉPENSES (JOUR)', val: stats.depense, color: 'text-red-600', border: 'border-red-500', icon: TrendingDown },
