@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Download, Filter, Search, Calendar, FileSpreadsheet, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
+import { subscribeEconome } from '@/lib/realtime';
 import * as XLSX from 'xlsx'; 
 
 type Vault = {
@@ -44,7 +45,7 @@ export default function DGAuditPage() {
     setLoading(true);
     // On charge UNIQUEMENT les transactions validées pour un audit comptable propre
     const { data: tx } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name)')
         .eq('status', 'VALIDATED') 
         .order('created_at', { ascending: false });
     const { data: v } = await supabase.from('vaults').select('*').order('name');
@@ -80,6 +81,15 @@ export default function DGAuditPage() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+    // Realtime : rafraîchir l'audit quand la BDD change
+    useEffect(() => {
+        const unsubscribe = subscribeEconome({
+            onVaults: () => loadData(),
+            onTransactions: () => loadData()
+        });
+        return unsubscribe;
+    }, []);
 
   // Ré-appliquer les filtres quand une variable change
   useEffect(() => {

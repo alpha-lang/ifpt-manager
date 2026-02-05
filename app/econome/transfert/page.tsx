@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { subscribeEconome } from '@/lib/realtime';
 import Swal from 'sweetalert2';
 import { ArrowRightLeft, Building2, Wallet, Send, Hash, Calendar, Search, Printer, History, RefreshCw, Clock, CheckCircle, Lock } from 'lucide-react';
 
@@ -80,7 +81,7 @@ export default function TransfertPage() {
 
     // 2. Demandes en Attente (PENDING)
     const { data: pend } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name), destination:vaults!transactions_destination_vault_id_fkey(name)')
         .eq('type', 'TRANSFERT')
         .eq('status', 'PENDING')
         .order('created_at', { ascending: false });
@@ -88,7 +89,7 @@ export default function TransfertPage() {
 
     // 3. Demandes Autorisées (AUTHORIZED)
     const { data: auth } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name), destination:vaults!transactions_destination_vault_id_fkey(name)')
         .eq('type', 'TRANSFERT')
         .eq('status', 'AUTHORIZED')
         .order('created_at', { ascending: false });
@@ -96,7 +97,7 @@ export default function TransfertPage() {
 
     // 4. Journal Exécuté (VALIDATED)
     const { data: hist } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name), destination:vaults!transactions_destination_vault_id_fkey(name)')
         .eq('type', 'TRANSFERT')
         .eq('status', 'VALIDATED')
         .gte('created_at', `${dateStart}T00:00:00`)
@@ -106,10 +107,35 @@ export default function TransfertPage() {
   }
 
   useEffect(() => { 
-    loadData(); 
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+        loadData(); 
+        const interval = setInterval(loadData, 5000);
+        const unsubscribe = subscribeEconome({
+            onRegister: () => loadData(),
+            onVaults: () => loadData(),
+            onTransactions: () => loadData()
+        });
+        return () => { clearInterval(interval); unsubscribe(); };
   }, [dateStart, dateEnd]);
+
+    // Définir par défaut la source/destination lorsque les coffres sont chargés
+    useEffect(() => {
+        if (vaults.length === 0) return;
+        // Si aucune source définie, choisir la caisse physique ou le premier coffre
+        if (!sourceId) {
+            const phys = vaults.find(v => (
+                (v.name && v.name.toString().toLowerCase().includes('esp')) ||
+                (v.name && v.name.toString().toLowerCase().includes('cash')) ||
+                // @ts-ignore some vaults may have type
+                (v.type && v.type === 'CASH')
+            ));
+            setSourceId(phys ? phys.id : vaults[0].id);
+        }
+        // Si aucune destination définie, choisir un coffre différent de la source
+        if (!destId) {
+            const firstOther = vaults.find(v => v.id !== (sourceId || vaults[0].id));
+            if (firstOther) setDestId(firstOther.id);
+        }
+    }, [vaults]);
 
   const getVaultName = (id: string) => vaults.find(v => v.id === id)?.name || '...';
 

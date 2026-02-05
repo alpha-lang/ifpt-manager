@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   // On retire le bloc 'eslint' car votre version de Next.js le signale comme invalide.
   // Si vous voulez ignorer le linting, Next.js le fait souvent automatiquement si configuré ainsi,
   // ou vous pouvez lancer 'next build --no-lint'.
+  experimental: {
+    // Ignore certains attributs HTML lors de l'hydratation
+    optimizeCss: true,
+  },
 };
 
 export default nextConfig;

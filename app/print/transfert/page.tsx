@@ -25,7 +25,7 @@ function TransfertPrintContent() {
 
   const loadTransaction = async () => {
     const { data: tx } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name), destination:vaults!transactions_destination_vault_id_fkey(name)')
         .eq('id', id)
         .single();
     

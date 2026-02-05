@@ -45,7 +45,7 @@ function JournalPrintContent() {
   const loadData = async () => {
     const { data: sess } = await supabase.from('cash_registers').select('*').eq('id', id).single();
     const { data: trans } = await supabase.from('transactions')
-      .select('*, vaults(name)')
+      .select('*, vaults!transactions_vault_id_fkey(name)')
       .eq('register_id', id)
       .order('created_at', { ascending: true });
 

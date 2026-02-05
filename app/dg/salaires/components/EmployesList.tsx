@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
-import { UserPlus, Search, Briefcase, Clock, Trash2, UserCheck, Filter, Users, RefreshCw } from 'lucide-react';
+import { UserPlus, Search, Briefcase, Clock, Trash2, UserCheck, Filter, Users, RefreshCw, CreditCard } from 'lucide-react';
 
 type Employee = {
   id: string;
@@ -22,6 +22,10 @@ export default function EmployesList() {
   const [filterType, setFilterType] = useState('TOUS');
   const [loading, setLoading] = useState(true);
 
+  // --- NOUVEL ÉTAT CAISSE ---
+  const [caisse, setCaisse] = useState<{ id?: string; opening_amount?: number | null; status?: string } | null>(null);
+  const [caisseLoading, setCaisseLoading] = useState(true);
+
   // Filtrage dynamique
   useEffect(() => {
     let res = employees;
@@ -39,6 +43,43 @@ export default function EmployesList() {
     const { data } = await supabase.from('employees').select('*').order('status').order('nom');
     setEmployees((data ?? []) as Employee[]);
     setLoading(false);
+  };
+
+  // --- NOUVELLES FONCTIONS CAISSE ---
+  const loadCaisse = async () => {
+    setCaisseLoading(true);
+    // Adapter le nom de table/colonnes si besoin (ex: 'caisses', 'caisse_sessions', etc.)
+    const { data, error } = await supabase.from('caisses').select('*').eq('status', 'OUVERTE').limit(1).single();
+    if (!error && data) setCaisse(data);
+    else setCaisse(null);
+    setCaisseLoading(false);
+  };
+
+  const ouvrirCaisse = async () => {
+    const { value: amount } = await Swal.fire({
+      title: 'Ouvrir la caisse',
+      input: 'number',
+      inputLabel: "Montant d'ouverture (Ar)",
+      inputValue: 0,
+      showCancelButton: true,
+      confirmButtonText: 'Ouvrir',
+      preConfirm: (val) => {
+        if (val === '' || val === null) Swal.showValidationMessage('Montant requis');
+        return parseFloat(String(val)) || 0;
+      }
+    });
+
+    if (amount !== undefined) {
+      const payload = { opening_amount: amount, status: 'OUVERTE', opened_at: new Date().toISOString() };
+      const { error } = await supabase.from('caisses').insert(payload);
+      if (!error) {
+        await loadCaisse();
+        const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+        Toast.fire({ icon: 'success', title: 'Caisse ouverte' });
+      } else {
+        Swal.fire('Erreur', error.message, 'error');
+      }
+    }
   };
 
   // --- ACTIONS ---
@@ -117,7 +158,7 @@ export default function EmployesList() {
      }
   };
 
-  useEffect(() => { loadEmployees(); }, []);
+  useEffect(() => { loadEmployees(); loadCaisse(); }, []);
 
   return (
     <div className="h-[calc(100vh-60px)] bg-gray-100 p-2 text-xs font-sans overflow-hidden flex flex-col">
@@ -160,6 +201,17 @@ export default function EmployesList() {
               </button>
               
               <button onClick={loadEmployees}><RefreshCw size={14} className={`text-blue-600 hover:rotate-180 transition ${loading ? 'animate-spin' : ''}`}/></button>
+
+              {/* BOUTON CAISSE */}
+              {!caisseLoading && caisse && caisse.status === 'OUVERTE' ? (
+                <button className="bg-yellow-50 text-yellow-800 px-3 py-1 rounded text-[10px] font-bold h-7 border border-yellow-100 flex items-center gap-2">
+                  <CreditCard size={12}/> Caisse: {(caisse.opening_amount || 0).toLocaleString()} Ar
+                </button>
+              ) : (
+                <button onClick={ouvrirCaisse} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow-sm flex items-center gap-1 text-[10px] font-bold h-7 transition active:scale-95">
+                  <CreditCard size={12}/> OUVRIR CAISSE
+                </button>
+              )}
           </div>
       </div>
 

@@ -2,45 +2,21 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { subscribeEconome } from '@/lib/realtime';
 import Swal from 'sweetalert2'; 
 import { 
   Printer, Plus, FileText, CheckCircle, XCircle, Clock, 
   AlertTriangle, Info, Wallet, User, Banknote, History, RefreshCw 
 } from 'lucide-react';
+import { toRegister, toVaults, toTransactions, toPaymentRequests, SafeRegister, SafeVault, SafeTransaction, SafePaymentRequest } from '@/lib/typeValidators';
 
-type Register = {
-  id: string;
-  created_at?: string;
-  [key: string]: unknown;
-};
+type Register = SafeRegister;
 
-type Vault = {
-  id: string;
-  name: string;
-  balance?: number | null;
-  [key: string]: unknown;
-};
+type Vault = SafeVault;
 
-type Transaction = {
-  id: string;
-  category: string;
-  amount: number;
-  status?: string | null;
-  description?: string | null;
-  requester_name?: string | null;
-  author?: string | null;
-  created_at: string;
-  vaults?: { name?: string | null } | null;
-  [key: string]: unknown;
-};
+type Transaction = SafeTransaction;
 
-type PaymentRequest = {
-  id: string;
-  beneficiary: string;
-  amount: number;
-  description?: string | null;
-  [key: string]: unknown;
-};
+type PaymentRequest = SafePaymentRequest;
 
 export default function DepensePage() {
   // --- ÉTATS ---
@@ -65,6 +41,16 @@ export default function DepensePage() {
   const [notif, setNotif] = useState<{msg: string, type: 'success'|'error'|'info'} | null>(null);
   useEffect(() => { if (notif) setTimeout(() => setNotif(null), 3000); }, [notif]);
 
+    // Realtime : rafraîchir les listes quand la BDD change
+    useEffect(() => {
+        const unsubscribe = subscribeEconome({
+            onRegister: (r) => setRegister(r),
+            onVaults: (v) => setVaults(v),
+            onTransactions: () => loadData()
+        });
+        return unsubscribe;
+    }, []);
+
   // Suivi Temps Réel
   const lastId = useRef<string | null>(null);
   const isFirst = useRef(true);
@@ -73,29 +59,29 @@ export default function DepensePage() {
   const loadData = async () => {
       // 1. Caisse & Coffres
       const { data: rData } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').maybeSingle();
-      setRegister((rData ?? null) as Register | null);
+      setRegister(toRegister(rData));
       const { data: vData } = await supabase.from('vaults').select('id, name, balance').order('name');
-      setVaults((vData ?? []) as Vault[]);
+      setVaults(toVaults(vData ?? []));
 
       if (rData) {
           // 2. Dépenses Autorisées par DG (Status: AUTHORIZED)
           const { data: authExp } = await supabase.from('transactions')
               .select('*').eq('status', 'AUTHORIZED').order('created_at');
-          setTodoExpenses((authExp ?? []) as Transaction[]);
+          setTodoExpenses(toTransactions(authExp ?? []));
 
           // 3. Salaires RH en attente (Status: PENDING dans payment_requests)
           const { data: authSal } = await supabase.from('payment_requests')
               .select('*').eq('status', 'PENDING').order('created_at');
-          setTodoSalaries((authSal ?? []) as PaymentRequest[]);
+          setTodoSalaries(toPaymentRequests(authSal ?? []));
 
           // 4. Journal Global (Tout type, Tout statut pour la vue "Log")
           // On exclut les brouillons (si existants) et on prend les 50 derniers
           const { data: logs } = await supabase.from('transactions')
-              .select('*, vaults(name)')
+              .select('*, vaults!transactions_vault_id_fkey(name)')
               .in('type', ['DEPENSE', 'TRANSFERT'])
               .order('created_at', { ascending: false })
               .limit(50);
-          setHistoryLog((logs ?? []) as Transaction[]);
+          setHistoryLog(toTransactions(logs ?? []));
 
           // 5. Check Notification (Sur le Log Global)
           if (logs && logs.length > 0) {
@@ -130,10 +116,12 @@ export default function DepensePage() {
 
       if (!tx) return baseBalance;
 
-      const movements = (tx as Array<{ type: string; amount: number }>).reduce((acc, t) => {
-          if (t.type === 'RECETTE') return acc + t.amount;
-          if (t.type === 'DEPENSE') return acc - t.amount;
-          if (t.type === 'TRANSFERT') return acc + t.amount;
+      const movements = (Array.isArray(tx) ? tx : []).reduce((acc, t) => {
+          const tAmount = typeof t.amount === 'number' ? t.amount : 0;
+          const tType = typeof t.type === 'string' ? t.type : '';
+          if (tType === 'RECETTE') return acc + tAmount;
+          if (tType === 'DEPENSE') return acc - tAmount;
+          if (tType === 'TRANSFERT') return acc + tAmount;
           return acc;
       }, 0);
 
@@ -163,10 +151,19 @@ export default function DepensePage() {
   // 2. Payer une Dépense (Autorisée par DG)
   const handlePayExpense = async (tx: Transaction) => {
       if (!register) return;
+      // Déterminer la caisse physique par défaut (ESP / CASH / type CASH)
+      const physicalVault = vaults.find(v => (
+          (v.name && v.name.toString().toLowerCase().includes('esp')) ||
+          (v.name && v.name.toString().toLowerCase().includes('cash')) ||
+          (v.type && v.type === 'CASH')
+      ));
+      const defaultVaultId = physicalVault ? physicalVault.id : '';
       const { value: vaultId } = await Swal.fire({
           title: 'Sortie de Caisse',
           html: `<div class="text-left text-xs"><b>Ref:</b> ${tx.category}<br/><b>Montant:</b> ${tx.amount.toLocaleString()} Ar</div>`,
-          input: 'select', inputOptions: vaults.reduce((acc, v) => ({ ...acc, [v.id]: v.name }), {}),
+          input: 'select',
+          inputOptions: vaults.reduce((acc, v) => ({ ...acc, [v.id]: v.name }), {}),
+          inputValue: defaultVaultId,
           showCancelButton: true, confirmButtonText: 'DÉCAISSER', confirmButtonColor: '#10b981'
       });
 
@@ -187,10 +184,18 @@ export default function DepensePage() {
   // 3. Payer un Salaire (Autorisé par RH)
   const handlePaySalary = async (req: PaymentRequest) => {
       if (!register) return;
+      // Déterminer la caisse physique par défaut
+      const phys = vaults.find(v => (
+        (v.name && v.name.toString().toLowerCase().includes('esp')) ||
+        (v.name && v.name.toString().toLowerCase().includes('cash')) ||
+        (v.type && v.type === 'CASH')
+      ));
+      const defaultVaultId = phys ? phys.id : '';
       const { value: vaultId } = await Swal.fire({
           title: 'Paiement Salaire',
           html: `<div class="text-left text-xs"><b>Bénéficiaire:</b> ${req.beneficiary}<br/><b>Net à Payer:</b> ${req.amount.toLocaleString()} Ar</div>`,
           input: 'select', inputOptions: vaults.reduce((acc, v) => ({ ...acc, [v.id]: v.name }), {}),
+          inputValue: defaultVaultId,
           showCancelButton: true, confirmButtonText: 'PAYER', confirmButtonColor: '#2563eb'
       });
 

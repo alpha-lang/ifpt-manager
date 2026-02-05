@@ -44,23 +44,46 @@ export default function Sidebar() {
   const [isRegisterOpen, setIsRegisterOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (role !== 'ECONOME') return;
+    // Charger le statut de la caisse (accessible pour tous les rôles)
     let isMounted = true;
-
     const loadRegisterStatus = async () => {
       const { data } = await supabase
         .from('cash_registers')
         .select('id')
         .eq('status', 'OPEN')
         .maybeSingle();
-      if (isMounted) {
-        setIsRegisterOpen(Boolean(data));
-      }
+      if (!isMounted) return;
+      setIsRegisterOpen(Boolean(data));
     };
 
     loadRegisterStatus();
+
+    // Utiliser l'événement centralisé dispatché par layout pour éviter
+    // d'ouvrir plusieurs canaux Realtime (limite free tier)
+    const handler = (ev?: Event) => {
+      try {
+        const detail = (ev as CustomEvent)?.detail;
+        // debug: log when an econome event is received (visible in browser console)
+        // eslint-disable-next-line no-console
+        console.debug('[Sidebar] econome event received', detail ?? ev?.type ?? null);
+        try {
+          // expose a testable flag for automated tests
+          (document.documentElement as any).dataset.economeEventReceived = String(Date.now());
+        } catch (e) {
+          // ignore
+        }
+      } catch (e) {
+        // ignore
+      }
+      loadRegisterStatus();
+    };
+    window.addEventListener('econome:db-change', handler as EventListener);
+    window.addEventListener('econome:db-poll', handler as EventListener);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('econome:db-change', handler as EventListener);
+      window.removeEventListener('econome:db-poll', handler as EventListener);
     };
   }, [role, path]);
 
@@ -189,7 +212,19 @@ export default function Sidebar() {
               return (
                 <button
                   key={`${m.link}-${i}`}
-                  onClick={() => (isDisabled ? null : router.push(m.link))}
+                  onClick={() => {
+                    if (isDisabled) {
+                      Swal.fire({
+                        title: 'Caisse fermée',
+                        text: 'Ouvrez la caisse pour accéder à cette fonctionnalité.',
+                        icon: 'info',
+                        confirmButtonText: 'OK',
+                        heightAuto: false
+                      });
+                      return;
+                    }
+                    router.push(m.link);
+                  }}
                   disabled={isDisabled}
                   title={isDisabled ? 'Caisse fermée' : undefined}
                   className={`w-full flex items-center justify-start gap-3 px-4 py-2 text-[11px] transition-all duration-150 group text-left

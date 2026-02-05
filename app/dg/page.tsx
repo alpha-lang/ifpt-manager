@@ -6,6 +6,8 @@ import { Wallet, Bell, AlertTriangle, Printer, Calendar, RefreshCw, BarChart3, A
 // @ts-expect-error recharts export types conflict with Next.js type resolution in this project
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import PendingValidations from './components/PendingValidations';
+import { toVaults, toTransactions, SafeTransaction } from '@/lib/typeValidators';
+import { subscribeEconome } from '@/lib/realtime';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -23,14 +25,7 @@ type Notification = {
   [key: string]: unknown;
 };
 
-type Transaction = {
-  amount: number;
-  type: string;
-  vault_id: string;
-  category: string;
-  created_at: string;
-  [key: string]: unknown;
-};
+type Transaction = SafeTransaction;
 
 type ChartEntry = {
   name: string;
@@ -68,9 +63,9 @@ export default function DGDashboard() {
     const { data: notifs } = await supabase.from('notifications').select('*').eq('status', 'UNREAD').order('created_at', { ascending: false });
 
     if (vList && allTx && balanceTx) {
-        const balanceTransactions = balanceTx as Transaction[];
+        const balanceTransactions = toTransactions(balanceTx);
         // Calcul Soldes Actuels
-        const computedVaults = (vList as Vault[]).map(v => {
+        const computedVaults = toVaults(vList).map(v => {
             const vaultTx = balanceTransactions.filter(t => t.vault_id === v.id);
             const bal = (v.balance || 0) + vaultTx.reduce((acc, t) => {
                 if (t.type === 'RECETTE') return acc + t.amount;
@@ -83,21 +78,21 @@ export default function DGDashboard() {
         setVaults(computedVaults);
 
         // Stats Période
-        const periodTransactions = allTx as Transaction[];
+        const periodTransactions = toTransactions(allTx);
         const r = periodTransactions.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
         const d = periodTransactions.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
         setStats({ recette: r, depense: d });
 
         // Graphique Période
         const depenses = periodTransactions.filter(t => t.type === 'DEPENSE');
-        const categories = Array.from(new Set(depenses.map(t => t.category)));
-        const pieData = categories.map(cat => ({
-            name: cat,
+        const categories = Array.from(new Set(depenses.map(t => t.category).filter(Boolean)));
+        const pieData: ChartEntry[] = categories.map(cat => ({
+            name: String(cat),
             value: depenses.filter(t => t.category === cat).reduce((a, b) => a + b.amount, 0)
         })).sort((a, b) => b.value - a.value).slice(0, 5);
-        setChartData(pieData as ChartEntry[]);
+        setChartData(pieData);
     }
-    setNotifications((notifs ?? []) as Notification[]);
+    setNotifications(Array.isArray(notifs) ? notifs : []);
     setLoading(false);
   };
 
@@ -116,6 +111,16 @@ export default function DGDashboard() {
       setStartDate(firstDay);
       setEndDate(lastDay);
   }, []);
+
+    // Realtime : refresh data when DB changes
+    useEffect(() => {
+        const unsubscribe = subscribeEconome({
+            onVaults: () => loadData(),
+            onTransactions: () => loadData(),
+            onRegister: () => loadData()
+        });
+        return unsubscribe;
+    }, [startDate, endDate]);
 
   useEffect(() => { 
       if(startDate && endDate) loadData(); 

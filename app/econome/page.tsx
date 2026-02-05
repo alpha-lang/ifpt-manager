@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle, CheckCircle, Clock, ArrowRight, RefreshCw, BarChart3, Coins } from 'lucide-react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
+import { toRegister, toVaults, toTransactions, SafeTransaction } from '@/lib/typeValidators';
 
 type Session = {
   opening_date: string;
@@ -20,16 +21,7 @@ type Vault = {
   [key: string]: unknown;
 };
 
-type Transaction = {
-  id: string;
-  created_at: string;
-  type: string;
-  category?: string | null;
-  description?: string | null;
-  amount: number;
-  vaults?: { name?: string | null; icon?: string | null } | null;
-  [key: string]: unknown;
-};
+type Transaction = SafeTransaction;
 
 export default function EconomeDashboard() {
   const [stats, setStats] = useState({ recette: 0, depense: 0, solde: 0, count: 0 });
@@ -44,7 +36,7 @@ export default function EconomeDashboard() {
     
     // 1. Session Caisse
     const { data: sess } = await supabase.from('cash_registers').select('*').eq('status', 'OPEN').maybeSingle();
-    setSession((sess ?? null) as Session | null);
+    setSession((toRegister(sess) ?? null) as Session | null);
 
     // 2. Transactions du Jour (Stats Rapides)
     const { data: txDay } = await supabase.from('transactions')
@@ -53,7 +45,7 @@ export default function EconomeDashboard() {
         .order('created_at', { ascending: false });
 
     if (txDay) {
-        const transactions = txDay as Transaction[];
+        const transactions = toTransactions(txDay);
         const r = transactions.filter(t => t.type === 'RECETTE').reduce((a, b) => a + b.amount, 0);
         const d = transactions.filter(t => t.type === 'DEPENSE').reduce((a, b) => a + b.amount, 0);
         setStats({ recette: r, depense: d, solde: r - d, count: transactions.length });
@@ -65,8 +57,13 @@ export default function EconomeDashboard() {
     const { data: allTx } = await supabase.from('transactions').select('amount, type, vault_id').eq('status', 'VALIDATED'); // Seul le validé compte
 
     if (vList) {
-        const allTransactions = (allTx ?? []) as Array<{ vault_id: string; type: string; amount: number }>;
-        const computedVaults = (vList as Vault[]).map(v => {
+        const validVaults = toVaults(vList);
+        const allTransactions = (Array.isArray(allTx) ? allTx : []).map(t => ({
+            vault_id: String(t.vault_id ?? ''),
+            type: String(t.type ?? ''),
+            amount: typeof t.amount === 'number' ? t.amount : 0
+        }));
+        const computedVaults = validVaults.map(v => {
             const vaultTx = allTransactions.filter(t => t.vault_id === v.id);
             const bal = (v.balance || 0) + vaultTx.reduce((acc, t) => {
                 if (t.type === 'RECETTE') return acc + t.amount;
@@ -87,7 +84,7 @@ export default function EconomeDashboard() {
       .from('cash_registers')
       .select('closing_balance_global')
       .eq('status', 'CLOSED')
-      .order('closing_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     const soldeTheorique = lastSession ? lastSession.closing_balance_global : 0;
@@ -130,8 +127,17 @@ export default function EconomeDashboard() {
       await supabase.from('cash_registers').insert({
         opening_date: formValues.date,
         status: 'OPEN',
-        opening_amount: formValues.fond
+        opening_balance_global: formValues.fond
       });
+      // Notifier les listeners (Sidebar, autres) qu'une ouverture de caisse a eu lieu
+      try {
+        // debug: log dispatch action in browser console
+        // eslint-disable-next-line no-console
+        console.debug('[Econome Dashboard] dispatch econome:db-change (openSession)');
+        window.dispatchEvent(new CustomEvent('econome:db-change', { detail: { source: 'openSession' } }));
+      } catch (e) {
+        // silent
+      }
       loadDashboard();
     }
   };
@@ -141,21 +147,13 @@ export default function EconomeDashboard() {
   }, [loadDashboard]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('econome-dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
-        loadDashboard();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vaults' }, () => {
-        loadDashboard();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_registers' }, () => {
-        loadDashboard();
-      })
-      .subscribe();
+    const handler = () => { loadDashboard(); };
+    window.addEventListener('econome:db-change', handler as EventListener);
+    window.addEventListener('econome:db-poll', handler as EventListener);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener('econome:db-change', handler as EventListener);
+      window.removeEventListener('econome:db-poll', handler as EventListener);
     };
   }, [loadDashboard]);
   const cards = [
@@ -181,7 +179,7 @@ export default function EconomeDashboard() {
         {session ? (
             <div className="flex items-center gap-2 bg-green-50 border border-green-200 px-2 py-0.5 rounded shadow-sm">
                 <CheckCircle size={12} className="text-green-600"/>
-                <span className="text-[9px] font-bold text-green-800 uppercase">SESSION OUVERTE ({new Date(session.opening_date).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})})</span>
+                <span className="text-[9px] font-bold text-green-800 uppercase">SESSION OUVERTE ({new Date(session.opening_date).toLocaleDateString()})</span>
             </div>
         ) : (
             <button
@@ -202,17 +200,20 @@ export default function EconomeDashboard() {
               
               {/* KPIs */}
               <div className="grid grid-cols-4 gap-2 h-20 shrink-0">
-                {cards.map((c, i) => (
-                  <div key={i} className={`bg-white px-3 py-2 rounded shadow-sm border-l-4 ${c.border} flex flex-col justify-center`}>
-                    <div className="flex justify-between items-start">
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">{c.title}</p>
-                        <c.icon className={`${c.color} opacity-80`} size={14} />
+                {cards.map((c, i) => {
+                  const Icon = c.icon;
+                  return (
+                    <div key={i} className={`bg-white px-3 py-2 rounded shadow-sm border-l-4 ${c.border} flex flex-col justify-center`}>
+                      <div className="flex justify-between items-start">
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">{c.title}</p>
+                          <Icon className={`${c.color} opacity-80`} size={14} />
+                      </div>
+                      <h3 className={`text-lg font-bold ${c.color} font-mono mt-1`}>
+                          {c.val.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans font-normal">{c.unit ?? 'Ar'}</span>
+                      </h3>
                     </div>
-                    <h3 className={`text-lg font-bold ${c.color} font-mono mt-1`}>
-                        {c.val.toLocaleString()} <span className="text-[10px] text-gray-400 font-sans font-normal">{c.unit ?? 'Ar'}</span>
-                    </h3>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* FIL D'ACTUALITÉ (Style Sage) */}
@@ -279,7 +280,7 @@ export default function EconomeDashboard() {
                   <div className="mt-4 pt-3 border-t border-gray-200 text-center">
                       <p className="text-[9px] text-gray-400 uppercase font-bold mb-1">Total Trésorerie</p>
                       <p className="text-lg font-mono font-bold text-blue-800">
-                          {vaults.reduce((a,b)=>a+b.balance, 0).toLocaleString()} Ar
+                          {vaults.reduce((a, b) => a + (b.balance ?? 0), 0).toLocaleString()} Ar
                       </p>
                   </div>
               </div>

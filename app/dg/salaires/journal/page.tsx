@@ -39,7 +39,7 @@ export default function JournalSalaires() {
   const loadSalaries = async () => {
     setLoading(true);
     const { data } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name)')
         .eq('type', 'DEPENSE')
         .eq('category', 'SALAIRE')
         .order('created_at', { ascending: false });

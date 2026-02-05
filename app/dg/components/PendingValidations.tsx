@@ -35,7 +35,7 @@ export default function PendingValidations() {
   const fetchPending = async () => {
     const { data } = await supabase
       .from('transactions')
-      .select('*, vaults(name)') // On récupère le nom du coffre source
+      .select('*, vaults!transactions_vault_id_fkey(name)') // On récupère le nom du coffre source
       .eq('status', 'PENDING')
       .order('created_at', { ascending: false });
     setRequests((data ?? []) as PendingRequest[]);

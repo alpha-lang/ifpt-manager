@@ -49,7 +49,7 @@ export default function HistoriquePage() {
     setLoadingDetails(true);
     // On charge les transactions de CETTE session
     const { data } = await supabase.from('transactions')
-      .select('*, vaults(name)') // On joint la table vaults pour avoir le nom du coffre
+      .select('*, vaults!transactions_vault_id_fkey(name)') // On joint la table vaults pour avoir le nom du coffre
       .eq('register_id', session.id)
       .order('created_at', { ascending: false });
     setDetails((data ?? []) as Transaction[]);

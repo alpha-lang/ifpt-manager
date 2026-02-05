@@ -28,7 +28,7 @@ function DecaissementContent() {
 
   const loadData = async () => {
     const { data: tx } = await supabase.from('transactions')
-        .select('*, vaults(name)')
+        .select('*, vaults!transactions_vault_id_fkey(name)')
         .eq('id', id)
         .single();
     

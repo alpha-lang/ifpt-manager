@@ -113,10 +113,19 @@ export default function ClotureAudit() {
     });
 
     if (isConfirmed && register) {
-      await supabase.from('cash_registers').update({
+      const { error } = await supabase.from('cash_registers').update({
         status: 'CLOSED', closing_balance_global: totalPhysique, details_billetage: auditData, closing_date: new Date()
       }).eq('id', register.id);
-      
+      if (!error) {
+        try {
+          // debug: log dispatch action in browser console
+          // eslint-disable-next-line no-console
+          console.debug('[Cloture] dispatch econome:db-change (closeSession)');
+          window.dispatchEvent(new CustomEvent('econome:db-change', { detail: { source: 'closeSession', table: 'cash_registers' } }));
+        } catch (e) {
+          // ignore in non-browser environments
+        }
+      }
       Swal.fire('Succès', 'Session clôturée avec succès.', 'success');
       setRegister(null);
     }
