@@ -92,16 +92,37 @@ export default function EconomeDashboard() {
       .maybeSingle();
     const soldeTheorique = lastSession ? lastSession.closing_balance_global : 0;
     const today = new Date().toISOString().split('T')[0];
+    const vaultBalancesHtml = vaults.length
+      ? `<div class="mt-2 rounded border border-gray-200 bg-gray-50 p-2">
+          <p class="text-[10px] font-bold uppercase text-gray-500 mb-1">Soldes réels en coffre</p>
+          <div class="space-y-1">
+            ${vaults.map(v => `
+              <div class="flex justify-between text-[11px]">
+                <span>${v.icon ?? ''} ${v.name}</span>
+                <span class="font-bold">${(v.balance ?? 0).toLocaleString()} Ar</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`
+      : `<div class="mt-2 text-[10px] text-gray-400 italic">Aucun coffre trouvé.</div>`;
 
     const { value: formValues } = await Swal.fire({
       title: 'Ouverture Caisse',
-      html: `<div class="text-left text-xs"><p>Théorique: <b>${soldeTheorique.toLocaleString()} Ar</b></p><input id="swal-fond" type="number" class="swal2-input" placeholder="Fond Réel" style="font-size:14px;"></div>`,
+      html: `<div class="text-left text-xs space-y-2">
+        <p>Théorique: <b>${soldeTheorique.toLocaleString()} Ar</b></p>
+        <label class="text-[10px] font-bold uppercase text-gray-500">Date d'ouverture</label>
+        <input id="swal-date" type="date" class="swal2-input" style="font-size:14px;" value="${today}">
+        <label class="text-[10px] font-bold uppercase text-gray-500">Solde manuel</label>
+        <input id="swal-fond" type="number" class="swal2-input" placeholder="Saisir le solde manuel" style="font-size:14px;">
+        ${vaultBalancesHtml}
+      </div>`,
       showCancelButton: true,
       confirmButtonText: 'OUVRIR',
       confirmButtonColor: '#10b981',
       preConfirm: () => {
         const f = (document.getElementById('swal-fond') as HTMLInputElement).value;
-        return { date: today, fond: parseFloat(f || '0') };
+        const d = (document.getElementById('swal-date') as HTMLInputElement).value;
+        return { date: d || today, fond: parseFloat(f || '0') };
       }
     });
 
