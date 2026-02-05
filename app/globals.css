@@ -30,6 +30,12 @@
     @apply disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed;
     font-size: 11px !important;
     font-weight: 600;
+    line-height: 1.2;
+  }
+
+  select {
+    padding-top: 0;
+    padding-bottom: 0;
   }
 
   /* Tableaux type "Grand Livre" */
