@@ -1,20 +1,27 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 
 export default function EconomeLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const role = typeof window !== 'undefined' ? sessionStorage.getItem('role') : null;
+  const [role, setRole] = useState<string | null>(null);
+  const [isCheckingRole, setIsCheckingRole] = useState(true);
+
+  useEffect(() => {
+    const storedRole = sessionStorage.getItem('role');
+    setRole(storedRole);
+    setIsCheckingRole(false);
+  }, []);
 
   useEffect(() => {
     // SÉCURITÉ : Vérification du rôle
-    if (role !== 'ECONOME') {
+    if (!isCheckingRole && role !== 'ECONOME') {
       router.push('/');
     }
-  }, [role, router]);
+  }, [isCheckingRole, role, router]);
 
-  if (role !== 'ECONOME') return null;
+  if (isCheckingRole || role !== 'ECONOME') return null;
 
   return (
     // STYLE SAGE : Ecran complet (h-screen), pas de scroll global (overflow-hidden), police dense (text-xs)
