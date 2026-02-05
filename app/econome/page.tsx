@@ -64,8 +64,8 @@ export default function EconomeDashboard() {
     const { data: vList } = await supabase.from('vaults').select('*').order('name');
     const { data: allTx } = await supabase.from('transactions').select('amount, type, vault_id').eq('status', 'VALIDATED'); // Seul le validé compte
 
-    if (vList && allTx) {
-        const allTransactions = allTx as Array<{ vault_id: string; type: string; amount: number }>;
+    if (vList) {
+        const allTransactions = (allTx ?? []) as Array<{ vault_id: string; type: string; amount: number }>;
         const computedVaults = (vList as Vault[]).map(v => {
             const vaultTx = allTransactions.filter(t => t.vault_id === v.id);
             const bal = (v.balance || 0) + vaultTx.reduce((acc, t) => {
