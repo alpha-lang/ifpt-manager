@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle, CheckCircle, Clock, ArrowRight, RefreshCw, BarChart3, Coins } from 'lucide-react';
 import Link from 'next/link';
+import Swal from 'sweetalert2';
 
 type Session = {
   opening_date: string;
@@ -81,6 +82,39 @@ export default function EconomeDashboard() {
     setLoading(false);
   };
 
+  const openSession = async () => {
+    const { data: lastSession } = await supabase
+      .from('cash_registers')
+      .select('closing_balance_global')
+      .eq('status', 'CLOSED')
+      .order('closing_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const soldeTheorique = lastSession ? lastSession.closing_balance_global : 0;
+    const today = new Date().toISOString().split('T')[0];
+
+    const { value: formValues } = await Swal.fire({
+      title: 'Ouverture Caisse',
+      html: `<div class="text-left text-xs"><p>Théorique: <b>${soldeTheorique.toLocaleString()} Ar</b></p><input id="swal-fond" type="number" class="swal2-input" placeholder="Fond Réel" style="font-size:14px;"></div>`,
+      showCancelButton: true,
+      confirmButtonText: 'OUVRIR',
+      confirmButtonColor: '#10b981',
+      preConfirm: () => {
+        const f = (document.getElementById('swal-fond') as HTMLInputElement).value;
+        return { date: today, fond: parseFloat(f || '0') };
+      }
+    });
+
+    if (formValues) {
+      await supabase.from('cash_registers').insert({
+        opening_date: formValues.date,
+        status: 'OPEN',
+        opening_amount: formValues.fond
+      });
+      loadDashboard();
+    }
+  };
+
   useEffect(() => { loadDashboard(); }, []);
   const cards = [
     { title: 'RECETTES (JOUR)', val: stats.recette, color: 'text-green-600', border: 'border-green-500', icon: TrendingUp },
@@ -108,10 +142,13 @@ export default function EconomeDashboard() {
                 <span className="text-[9px] font-bold text-green-800 uppercase">SESSION OUVERTE ({new Date(session.opening_date).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})})</span>
             </div>
         ) : (
-            <Link href="/econome/recette" className="flex items-center gap-2 bg-red-50 border border-red-200 px-2 py-0.5 rounded shadow-sm hover:bg-red-100 transition animate-pulse">
+            <button
+              onClick={openSession}
+              className="flex items-center gap-2 bg-red-50 border border-red-200 px-2 py-0.5 rounded shadow-sm hover:bg-red-100 transition animate-pulse"
+            >
                 <AlertCircle size={12} className="text-red-600"/>
                 <span className="text-[9px] font-bold text-red-800 uppercase underline">SESSION FERMÉE - OUVRIR</span>
-            </Link>
+            </button>
         )}
         <button onClick={loadDashboard}><RefreshCw size={12} className="text-blue-500 hover:rotate-180 transition"/></button>
       </div>
@@ -207,6 +244,15 @@ export default function EconomeDashboard() {
           </div>
 
       </div>
+      {!session && (
+        <button
+          onClick={openSession}
+          className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-[10px] font-bold uppercase text-white shadow-lg transition hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 animate-pulse"
+        >
+          <AlertCircle size={14} />
+          Ouvrir la caisse
+        </button>
+      )}
     </div>
   );
 }
