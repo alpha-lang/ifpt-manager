@@ -25,6 +25,7 @@ type Transfer = {
 
 export default function TransfertPage() {
   const [vaults, setVaults] = useState<Vault[]>([]);
+  const [isRegisterOpen, setIsRegisterOpen] = useState<boolean | null>(null);
   
   // Listes
   const [authorizedTransfers, setAuthorizedTransfers] = useState<Transfer[]>([]); // Validés par DG, à exécuter
@@ -66,6 +67,13 @@ export default function TransfertPage() {
   }, [authorizedTransfers]);
 
   async function loadData() {
+    const { data: register } = await supabase
+      .from('cash_registers')
+      .select('id')
+      .eq('status', 'OPEN')
+      .maybeSingle();
+    setIsRegisterOpen(Boolean(register));
+
     // 1. Coffres
     const { data: vData } = await supabase.from('vaults').select('*').order('name');
     if (vData) setVaults(vData as Vault[]);
@@ -107,6 +115,7 @@ export default function TransfertPage() {
 
   // --- 1. CRÉATION DE LA DEMANDE ---
   const handleRequest = async () => {
+    if (isRegisterOpen === false) return setNotif({ type: 'error', msg: 'Caisse fermée - transferts indisponibles' });
     if (!sourceId || !destId || !amount) return setNotif({type: 'error', msg: 'Données incomplètes'});
     if (sourceId === destId) return setNotif({type: 'error', msg: 'Source = Destination'});
 
@@ -140,8 +149,11 @@ export default function TransfertPage() {
 
   // --- 2. EXÉCUTION DU TRANSFERT (Après Accord DG) ---
   const handleExecute = async (tx: Transfer) => {
+      if (isRegisterOpen === false) {
+          setNotif({ type: 'error', msg: 'Caisse fermée - transferts indisponibles' });
+          return;
+      }
       const destName = getVaultName(tx.destination_vault_id);
-      const sourceName = getVaultName(tx.vault_id); // Nom du compte source (déjà dans tx.vaults normalement)
       
       const { isConfirmed } = await Swal.fire({
           title: 'Exécuter le Virement ?',
@@ -246,6 +258,11 @@ export default function TransfertPage() {
               <button onClick={() => loadData()}><RefreshCw size={14} className="text-blue-600 hover:rotate-180 transition"/></button>
           </div>
       </div>
+      {isRegisterOpen === false && (
+          <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold uppercase px-3 py-2 rounded flex items-center gap-2 no-print">
+              <Lock size={12}/> Caisse fermée : transferts bloqués
+          </div>
+      )}
 
       <div className="flex flex-1 gap-2 mt-2 overflow-hidden no-print">
           
@@ -262,7 +279,7 @@ export default function TransfertPage() {
                           <div className="relative">
                               <Wallet className="absolute left-2 top-1.5 text-red-400" size={12}/>
                               <select className="w-full border border-red-200 bg-red-50 rounded pl-6 pr-1 py-1 text-[10px] font-bold text-gray-700 outline-none focus:border-red-400" 
-                                  value={sourceId} onChange={e => setSourceId(e.target.value)}>
+                                  value={sourceId} onChange={e => setSourceId(e.target.value)} disabled={isRegisterOpen === false}>
                                   <option value="">-- Choisir --</option>
                                   {vaults.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                               </select>
@@ -278,7 +295,7 @@ export default function TransfertPage() {
                           <div className="relative">
                               <Building2 className="absolute left-2 top-1.5 text-green-400" size={12}/>
                               <select className="w-full border border-green-200 bg-green-50 rounded pl-6 pr-1 py-1 text-[10px] font-bold text-gray-700 outline-none focus:border-green-400"
-                                  value={destId} onChange={e => setDestId(e.target.value)}>
+                                  value={destId} onChange={e => setDestId(e.target.value)} disabled={isRegisterOpen === false}>
                                   <option value="">-- Choisir --</option>
                                   {vaults.map(v => <option key={v.id} value={v.id} disabled={v.id === sourceId}>{v.name}</option>)}
                               </select>
@@ -288,22 +305,26 @@ export default function TransfertPage() {
                       <div>
                           <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Montant (Ar)</label>
                           <input type="number" className="w-full border border-gray-300 rounded px-2 py-1 text-right font-mono font-bold text-blue-700 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                              placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                              placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} disabled={isRegisterOpen === false} />
                       </div>
 
                       <div>
                           <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Référence</label>
                           <input type="text" className="w-full border border-gray-300 rounded px-2 py-1 text-[10px] font-mono uppercase"
-                              placeholder="CHQ-XXX" value={reference} onChange={e => setReference(e.target.value)} />
+                              placeholder="CHQ-XXX" value={reference} onChange={e => setReference(e.target.value)} disabled={isRegisterOpen === false} />
                       </div>
 
                       <div>
                           <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Motif</label>
                           <input type="text" className="w-full border border-gray-300 rounded px-2 py-1 text-[10px]"
-                              placeholder="Optionnel..." value={motif} onChange={e => setMotif(e.target.value)} />
+                              placeholder="Optionnel..." value={motif} onChange={e => setMotif(e.target.value)} disabled={isRegisterOpen === false} />
                       </div>
 
-                      <button onClick={handleRequest} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 rounded shadow-sm flex items-center justify-center gap-1 text-[10px] mt-2 transition active:scale-95">
+                      <button
+                        onClick={handleRequest}
+                        disabled={isRegisterOpen === false}
+                        className={`w-full text-white font-bold py-1.5 rounded shadow-sm flex items-center justify-center gap-1 text-[10px] mt-2 transition active:scale-95 ${isRegisterOpen === false ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                      >
                           <Printer size={12}/> DEMANDER
                       </button>
                   </div>
@@ -325,7 +346,11 @@ export default function TransfertPage() {
                           <div key={tx.id} className="flex flex-col bg-green-50/50 border border-green-100 p-2 rounded hover:bg-white transition group">
                               <div className="flex justify-between items-start mb-1">
                                   <div className="text-[10px] font-bold text-gray-700">{Math.abs(tx.amount).toLocaleString()} Ar</div>
-                                  <button onClick={() => handleExecute(tx)} className="bg-green-600 text-white px-2 py-0.5 rounded text-[9px] font-bold hover:bg-green-700 shadow-sm animate-pulse">
+                                  <button
+                                    onClick={() => handleExecute(tx)}
+                                    disabled={isRegisterOpen === false}
+                                    className={`px-2 py-0.5 rounded text-[9px] font-bold shadow-sm ${isRegisterOpen === false ? 'bg-green-300 text-white cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700 animate-pulse'}`}
+                                  >
                                       VALIDER
                                   </button>
                               </div>
